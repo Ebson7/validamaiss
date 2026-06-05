@@ -33,6 +33,7 @@ export interface Produto {
   quantidadeDisponivel: number;
   quantidadeReservada: number;
   imageUrl?: string;
+  imagens?: string[];
   status: 'disponivel' | 'esgotado';
   endereco: string;
   criadoEm: any; // Firestore Timestamp
@@ -62,4 +63,26 @@ export interface AvaliacaoLoja {
   comentario: string;
   criadoEm: any; // ISO date string or Firestore Timestamp
 }
+
+export interface NotificacaoPreferencias {
+  uid: string;
+  cepsDesejados: string[]; // List of CEPs to monitor
+  distanciaKm: number; // radius to monitor (or simply CEP prefix match)
+  notificarNovosDescontos: boolean;
+  fcmTokens: string[];
+}
+
+export interface NotificacaoFeedItem {
+  id?: string;
+  usuarioId: string; // The user this was sent to
+  titulo: string;
+  mensagem: string;
+  produtoId: string;
+  nomeLoja: string;
+  precoOriginal: number;
+  precoPromocional: number;
+  lido: boolean;
+  criadoEm: any;
+}
+
 

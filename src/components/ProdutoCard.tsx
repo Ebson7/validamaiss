@@ -73,13 +73,17 @@ export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
   };
 
   // Safe image display
-  const finalImageUrl = produto.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=60&w=400';
+  const finalImageUrl = (produto.imagens && produto.imagens.length > 0) 
+    ? produto.imagens[0] 
+    : (produto.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=60&w=400');
 
   return (
     <div
       id={`produto_card_${produto.id}`}
       className={`glass rounded-3xl border-white/45 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col group ${
         isEsgotado || expiry.isExpired ? 'opacity-85' : ''
+      } ${
+        !isEsgotado && !expiry.isExpired && expiry.days === 0 ? 'ring-2 ring-rose-500/80 hover:ring-rose-600 bg-rose-50/5/10 bg-red-50/10' : ''
       }`}
     >
       {/* Product Image & Badge */}
@@ -102,6 +106,14 @@ export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
         <div className={`absolute top-3 right-3 border px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider shadow-xs uppercase font-mono ${expiry.color}`}>
           {expiry.label}
         </div>
+
+        {/* Same-day expiration high urgency banner */}
+        {!isEsgotado && !expiry.isExpired && expiry.days === 0 && (
+          <div className="absolute bottom-0 left-0 right-0 bg-rose-600 text-white text-[10px] font-black tracking-wider uppercase font-mono py-1.5 px-3 flex items-center justify-between shadow-inner animate-pulse">
+            <span className="flex items-center gap-1">🚨 Retirada Urgente</span>
+            <span>Consumir Hoje!</span>
+          </div>
+        )}
 
         {/* Esgotado Overlay */}
         {isEsgotado && (

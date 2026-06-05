@@ -11,10 +11,11 @@ import {
   signOut,
   User as FirebaseUser 
 } from 'firebase/auth';
-import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { getToken } from 'firebase/messaging';
+import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType, messaging } from '../lib/firebase';
 import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
-import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja } from '../types';
+import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem } from '../types';
 import { 
   getProducts, 
   getStoreProducts, 
@@ -76,6 +77,15 @@ interface AppContextType {
   addAvaliacaoLoja: (reservaId: string, nomeLoja: string, estrelas: number, comentario: string) => Promise<void>;
   seedProducts: () => Promise<void>;
   clearAllDatabaseUsers: () => Promise<void>;
+  notificacoes: NotificacaoFeedItem[];
+  notificacoesPreferencias: NotificacaoPreferencias | null;
+  notificationsPermission: NotificationPermission;
+  isFCMSupported: boolean;
+  requestNotificationPermissionAndToken: (customVapidKey?: string) => Promise<string | null>;
+  updateNotificacaoPreferencias: (ceps: string[], notificarNovosDescontos: boolean) => Promise<void>;
+  marcarNotificacaoComoLida: (id: string) => Promise<void>;
+  apagarNotificacao: (id: string) => Promise<void>;
+  testSendNotificationPreview: (produto: Produto) => Promise<void>;
 }
 
 const DEFAULT_USERS: Usuario[] = [
@@ -145,6 +155,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('validamais_avaliacoes');
     return saved ? JSON.parse(saved) : [];
   });
+
+  const [notificacoes, setNotificacoes] = useState<NotificacaoFeedItem[]>([]);
+  const [notificacoesPreferencias, setNotificacoesPreferencias] = useState<NotificacaoPreferencias | null>(null);
+  const [notificationsPermission, setNotificationsPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
+
   const [produtosLoading, setProdutosLoading] = useState(() => {
     const saved = localStorage.getItem('validamais_produtos');
     return !saved; // Only show spinner if cache is empty
@@ -261,6 +278,180 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     return unsubscribe;
   }, []);
+
+  // Real-time synchronization for 'notificacoes_preferencias'
+  useEffect(() => {
+    if (!user) {
+      setNotificacoesPreferencias(null);
+      return;
+    }
+    const docRef = doc(db, 'notificacoes_preferencias', user.uid);
+    const unsubscribe = onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setNotificacoesPreferencias(docSnap.data() as NotificacaoPreferencias);
+        } else {
+          // Initialize default empty preferences
+          const initial: NotificacaoPreferencias = {
+            uid: user.uid,
+            cepsDesejados: [],
+            distanciaKm: 5,
+            notificarNovosDescontos: true,
+            fcmTokens: []
+          };
+          setDoc(docRef, initial).catch((e) => console.warn("Failed to initialize user push preferences:", e));
+          setNotificacoesPreferencias(initial);
+        }
+      },
+      (error) => {
+        console.warn("Sync preferences failed:", error);
+      }
+    );
+    return unsubscribe;
+  }, [user]);
+
+  // Real-time synchronization for 'notificacoes' (user-specific feed)
+  useEffect(() => {
+    if (!user) {
+      setNotificacoes([]);
+      return;
+    }
+    const colRef = collection(db, 'notificacoes');
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        const results: NotificacaoFeedItem[] = [];
+        snapshot.forEach((docSnap) => {
+          const item = { id: docSnap.id, ...docSnap.data() } as NotificacaoFeedItem;
+          if (item.usuarioId === user.uid) {
+            results.push(item);
+          }
+        });
+        
+        // Sort notifications by date (newest first)
+        results.sort((a,b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime());
+        
+        // Detect additions of unread notifications to trigger visual & physical feedback (sounds & alerts)
+        setNotificacoes((prev) => {
+          const prevIds = new Set(prev.map(p => p.id));
+          const newUnreadItems = results.filter(r => !r.lido && !prevIds.has(r.id));
+          
+          if (newUnreadItems.length > 0) {
+            newUnreadItems.forEach(item => {
+              // Standard Browser Push Notification (if permitted)
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification(item.titulo, {
+                    body: item.mensagem,
+                    icon: '/logo.png',
+                    tag: item.id
+                  });
+                } catch (e) {
+                  console.warn("Browser notification trigger skipped due to iframe constraints:", e);
+                }
+              }
+              // Advanced Synthesized Digital Sound Alert (Digital chime that works perfectly inside standard frames!)
+              try {
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                if (audioCtx.state === 'suspended') {
+                  // Some browsers suspend audio until user interaction
+                  const resumeAudio = () => {
+                    audioCtx.resume();
+                    window.removeEventListener('click', resumeAudio);
+                  };
+                  window.addEventListener('click', resumeAudio);
+                }
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.type = 'sine';
+                // Success sound progression (D5 -> A5)
+                oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+                oscillator.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.12); // A5
+                gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.45);
+              } catch (soundError) {
+                console.log("Audio synthesis skipper: ", soundError);
+              }
+            });
+          }
+          return results;
+        });
+      },
+      (error) => {
+        console.warn("Real-time snapshot notifications subscription failed: ", error);
+      }
+    );
+    return unsubscribe;
+  }, [user]);
+
+  // Monitor newly added discounted products in real time and automatically deliver a notification matching preferences
+  useEffect(() => {
+    const colRef = collection(db, 'produtos');
+    let isInitialBatch = true;
+    
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      if (isInitialBatch) {
+        isInitialBatch = false;
+        return; // ignore initial loading items
+      }
+      
+      snapshot.docChanges().forEach(async (change) => {
+        if (change.type === 'added') {
+          const newProd = { id: change.doc.id, ...change.doc.data() } as Produto;
+          const isDiscounted = newProd.precoPromocional < newProd.precoOriginal;
+          
+          if (isDiscounted && newProd.status === 'disponivel') {
+            const prodId = change.doc.id;
+            
+            // Deliver notification to logged-in customer matching preferences
+            if (user && user.role === 'user') {
+              const prefs = notificacoesPreferencias;
+              if (prefs && prefs.notificarNovosDescontos) {
+                // If they have CEP search filters, check if address CEP overlaps, or matches store names
+                const matchesCep = prefs.cepsDesejados.length === 0 || prefs.cepsDesejados.some(cep => {
+                  const cleanPref = cep.replace(/\D/g, '').substring(0, 5);
+                  const cleanProd = (newProd.endereco || '').replace(/\D/g, '');
+                  return (cleanProd && cleanProd.includes(cleanPref)) || 
+                    (newProd.nomeLoja || '').toLowerCase().includes(cep.toLowerCase()) ||
+                    (newProd.endereco || '').toLowerCase().includes(cep.toLowerCase());
+                });
+                
+                if (matchesCep) {
+                  // Avoid duplicating notifications for the same product
+                  const exists = notificacoes.some(n => n.produtoId === prodId);
+                  if (!exists) {
+                    const discountPct = Math.round(((newProd.precoOriginal - newProd.precoPromocional) / newProd.precoOriginal) * 100);
+                    try {
+                      await addDoc(collection(db, 'notificacoes'), {
+                        usuarioId: user.uid,
+                        titulo: `🚨 Novo Desconto Próximo: ${newProd.nomeProduto}!`,
+                        mensagem: `${newProd.nomeLoja} adicionou um item com ${discountPct}% OFF! De R$ ${newProd.precoOriginal.toFixed(2)} por R$ ${newProd.precoPromocional.toFixed(2)}. Corra para reservar!`,
+                        produtoId: prodId,
+                        nomeLoja: newProd.nomeLoja,
+                        precoOriginal: newProd.precoOriginal,
+                        precoPromocional: newProd.precoPromocional,
+                        lido: false,
+                        criadoEm: new Date().toISOString()
+                      });
+                    } catch (e) {
+                      console.warn("Auto-creation of notification failed: ", e);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+    });
+    
+    return unsubscribe;
+  }, [user, notificacoesPreferencias, notificacoes]);
 
   // Seed default demo accounts to local storage and Firestore on first load
   useEffect(() => {
@@ -820,6 +1011,138 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const requestNotificationPermissionAndToken = async (customVapidKey?: string): Promise<string | null> => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      showAlert('A API de Notificações não é suportada por esse navegador.', 'error');
+      return null;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationsPermission(permission);
+      
+      if (permission !== 'granted') {
+        showAlert('A permissão de notificações nativas foi negada ou bloqueada.', 'warning');
+        return null;
+      }
+
+      // If FCM is loaded and operational, attempt to register real Device Token from user's Firebase console settings!
+      if (messaging) {
+        // Fallback default VAPID or custom user VAPID key
+        const vapid = customVapidKey || "BEnSg1r-S-F472PuyunT6ZJ5G-TID-rP9v9mI-j9Z584-placeholder";
+        try {
+          const token = await getToken(messaging, { vapidKey: vapid });
+          if (token) {
+            console.log("FCM Device Token retrieved:", token);
+            if (user) {
+              const prefRef = doc(db, 'notificacoes_preferencias', user.uid);
+              const currentPrefs = notificacoesPreferencias || {
+                uid: user.uid,
+                cepsDesejados: [],
+                distanciaKm: 5,
+                notificarNovosDescontos: true,
+                fcmTokens: []
+              };
+              const updatedTokens = Array.from(new Set([...(currentPrefs.fcmTokens || []), token]));
+              const updatedPrefs = { ...currentPrefs, fcmTokens: updatedTokens };
+              await setDoc(prefRef, updatedPrefs);
+              setNotificacoesPreferencias(updatedPrefs);
+            }
+            showAlert('Configuração FCM efetuada! Token registrado no perfil do banco.', 'success');
+            return token;
+          }
+        } catch (fcmErr: any) {
+          console.warn("FCM dynamic Token retrieval bypassed (common inside browser sandboxed iframe previews). Sincronização em tempo real continua ativa!", fcmErr);
+        }
+      }
+
+      // Fallback/Simulated FCM device registration inside sandbox previews
+      const virtualToken = `virtual_fcm_token_${Date.now()}`;
+      if (user) {
+        const prefRef = doc(db, 'notificacoes_preferencias', user.uid);
+        const currentPrefs = notificacoesPreferencias || {
+          uid: user.uid,
+          cepsDesejados: [],
+          distanciaKm: 5,
+          notificarNovosDescontos: true,
+          fcmTokens: []
+        };
+        const updatedTokens = Array.from(new Set([...(currentPrefs.fcmTokens || []), virtualToken]));
+        const updatedPrefs = { ...currentPrefs, fcmTokens: updatedTokens };
+        await setDoc(prefRef, updatedPrefs);
+        setNotificacoesPreferencias(updatedPrefs);
+      }
+      showAlert('Notificações ativadas com sucesso para esta sessão do navegador!', 'success');
+      return virtualToken;
+    } catch (err) {
+      console.error("Permission request error:", err);
+      showAlert('Ocorreu um erro ao ativar notificações.', 'error');
+      return null;
+    }
+  };
+
+  const updateNotificacaoPreferencias = async (ceps: string[], notificarNovosDescontos: boolean): Promise<void> => {
+    if (!user) return;
+    try {
+      const prefRef = doc(db, 'notificacoes_preferencias', user.uid);
+      const updated: NotificacaoPreferencias = {
+        uid: user.uid,
+        cepsDesejados: ceps,
+        distanciaKm: 5,
+        notificarNovosDescontos,
+        fcmTokens: notificacoesPreferencias?.fcmTokens || []
+      };
+      await setDoc(prefRef, updated);
+      setNotificacoesPreferencias(updated);
+      showAlert('Preferências de monitoramento registradas com sucesso!', 'success');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `notificacoes_preferencias/${user.uid}`);
+    }
+  };
+
+  const marcarNotificacaoComoLida = async (id: string): Promise<void> => {
+    try {
+      const docRef = doc(db, 'notificacoes', id);
+      await updateDoc(docRef, { lido: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `notificacoes/${id}`);
+    }
+  };
+
+  const apagarNotificacao = async (id: string): Promise<void> => {
+    try {
+      const docRef = doc(db, 'notificacoes', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `notificacoes/${id}`);
+    }
+  };
+
+  const testSendNotificationPreview = async (produto: Produto): Promise<void> => {
+    if (!user) {
+      showAlert('É necessário estar logado para simular notificações.', 'warning');
+      return;
+    }
+    const discountPct = Math.round(((produto.precoOriginal - produto.precoPromocional) / produto.precoOriginal) * 100);
+    try {
+      await addDoc(collection(db, 'notificacoes'), {
+        usuarioId: user.uid,
+        titulo: `🚨 Desconto Especial em ${produto.nomeLoja}!`,
+        mensagem: `${produto.nomeProduto} baixou de R$ ${produto.precoOriginal.toFixed(2)} para R$ ${produto.precoPromocional.toFixed(2)} (${discountPct}% de economia direta). Aproveite!`,
+        produtoId: produto.id || 'teste',
+        nomeLoja: produto.nomeLoja,
+        precoOriginal: produto.precoOriginal,
+        precoPromocional: produto.precoPromocional,
+        lido: false,
+        criadoEm: new Date().toISOString()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'notificacoes');
+    }
+  };
+
+  const isFCMSupported = !!messaging;
+
   return (
     <AppContext.Provider
       value={{
@@ -850,7 +1173,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteCategory,
         addAvaliacaoLoja,
         seedProducts,
-        clearAllDatabaseUsers
+        clearAllDatabaseUsers,
+        notificacoes,
+        notificacoesPreferencias,
+        notificationsPermission,
+        isFCMSupported,
+        requestNotificationPermissionAndToken,
+        updateNotificacaoPreferencias,
+        marcarNotificacaoComoLida,
+        apagarNotificacao,
+        testSendNotificationPreview
       }}
     >
       {children}

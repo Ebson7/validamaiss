@@ -11,6 +11,7 @@ export const ProdutoDetalheValida: React.FC = () => {
   const { selectedProductId, navigateTo, user, showAlert, produtos, produtosLoading: loading, createReservation, avaliacoes } = useApp();
   const [quantidade, setQuantidade] = useState(1);
   const [reserving, setReserving] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const produto = produtos.find(p => p.id === selectedProductId) || null;
 
@@ -126,7 +127,7 @@ export const ProdutoDetalheValida: React.FC = () => {
         <div className="space-y-4">
           <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-white/40 border border-white/30">
             <img
-              src={produto.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=60&w=600'}
+              src={(produto.imagens && produto.imagens[activeImageIndex]) || produto.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=60&w=600'}
               alt={produto.nomeProduto}
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"
@@ -137,6 +138,31 @@ export const ProdutoDetalheValida: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Interactive Multi-angle Thumbnails Row */}
+          {produto.imagens && produto.imagens.length > 1 && (
+            <div className="grid grid-cols-3 gap-2">
+              {produto.imagens.map((imgUrl, idx) => {
+                const viewpointLabels = ["Frente", "Lado Dir.", "Lado Esq."];
+                const label = viewpointLabels[idx] || `Ângulo ${idx + 1}`;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`flex flex-col items-center gap-1.5 p-1 rounded-xl border transition-all cursor-pointer bg-white/40 hover:bg-white/70 ${
+                      activeImageIndex === idx ? 'border-emerald-500 ring-2 ring-emerald-500/10' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="aspect-square w-full rounded-lg overflow-hidden bg-gray-50">
+                      <img src={imgUrl} alt={`Ângulo ${label}`} className="w-full h-full object-cover" />
+                    </div>
+                    <span className="text-[10px] font-bold font-sans text-gray-500 tracking-tight leading-none truncate w-full uppercase">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="glass border-white/40 rounded-2xl p-4 space-y-2 bg-white/40">
             <h4 className="text-xs font-bold text-gray-500 font-mono uppercase">Local de Retirada Física</h4>
