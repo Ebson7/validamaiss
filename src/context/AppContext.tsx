@@ -676,10 +676,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Google Login handler
   const loginWithGoogle = async () => {
-    setLoading(true);
+    // Avoid blocking background with a full-screen loading spinner while the popup is open
     try {
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
+      
+      // Post-authentication loading for document writing/fetching
+      setLoading(true);
       const email = cred.user.email || '';
       const nome = cred.user.displayName || 'Usuário Google';
       
@@ -694,6 +697,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
       showAlert(`Bem-vindo, ${profile.nome}! (Login com Google)`, 'success');
       
+      setLoading(false);
       if (profile.role === 'admin') {
         navigateTo('admin-dashboard');
       } else {
@@ -703,7 +707,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("Google login failed:", err);
       // Don't show cancel error as a scary message
       if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-        showAlert(err.message || 'Erro ao realizar login com o Google.', 'error');
+        let msg = err.message || 'Erro ao realizar login com o Google.';
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+          msg += ' Dica: abra esta aplicação em uma nova aba fora do visualizador do AI Studio para contornar bloqueios de cookies de terceiros.';
+        }
+        showAlert(msg, 'error');
       }
       setLoading(false);
       throw err;

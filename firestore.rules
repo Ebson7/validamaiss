@@ -18,7 +18,7 @@ service cloud.firestore {
         data.keys().size() <= 6 &&
         data.uid is string && data.uid.size() <= 128 &&
         data.email is string && data.email.size() <= 256 &&
-        data.nome is string && data.nome.size() <= 100 &&
+        data.nome is string && data.nome.size() <= 256 &&
         data.role is string && (data.role == 'user' || data.role == 'admin') &&
         data.criadoEm != null &&
         (!data.keys().hasAny(['senha']) || (data.senha is string && data.senha.size() <= 128));
@@ -45,7 +45,7 @@ service cloud.firestore {
         data.endereco is string && data.endereco.size() <= 300 &&
         data.criadoEm != null &&
         (!data.keys().hasAny(['descricao']) || (data.descricao is string && data.descricao.size() <= 2000)) &&
-        (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 1000)) &&
+        (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 1000000)) &&
         (!data.keys().hasAny(['imagens']) || (data.imagens is list && data.imagens.size() <= 3));
     }
 

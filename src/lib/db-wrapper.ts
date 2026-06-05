@@ -194,10 +194,33 @@ export async function getProductById(id: string): Promise<Produto | null> {
   return local || null;
 }
 
+// Helper to prevent Firestore crashes from undefined field values
+function sanitizePayload(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizePayload(item)).filter(val => val !== undefined);
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, val] of Object.entries(obj)) {
+      if (val !== undefined) {
+        cleaned[key] = sanitizePayload(val);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 // 4. Create or edit a product
 export async function saveProduct(formData: any, productId: string | null = null, adminId: string): Promise<Produto> {
   const now = new Date().toISOString();
   let savedProd: Produto;
+
+  let firestoreError: any = null;
+
+  // Sanitize from any undefined properties (e.g. imageUrl can be undefined if empty)
+  const cleanFormData = sanitizePayload(formData);
 
   try {
     if (productId) {
@@ -205,10 +228,10 @@ export async function saveProduct(formData: any, productId: string | null = null
       const docRef = doc(db, 'produtos', productId);
       const previousDoc = await getProductById(productId);
       const quantityReserved = previousDoc ? previousDoc.quantidadeReservada : 0;
-      const finalStatus = (formData.quantidadeDisponivel - quantityReserved <= 0) ? 'esgotado' : 'disponivel';
+      const finalStatus = (cleanFormData.quantidadeDisponivel - quantityReserved <= 0) ? 'esgotado' : 'disponivel';
       
       const payload = {
-        ...formData,
+        ...cleanFormData,
         quantidadeReservada: quantityReserved,
         status: finalStatus
       };
@@ -219,7 +242,7 @@ export async function saveProduct(formData: any, productId: string | null = null
       // Create mode
       const productsCol = collection(db, 'produtos');
       const payload = {
-        ...formData,
+        ...cleanFormData,
         adminId,
         quantidadeReservada: 0,
         status: 'disponivel',
@@ -230,7 +253,8 @@ export async function saveProduct(formData: any, productId: string | null = null
       savedProd = { id: docRef.id, ...payload } as Produto;
     }
   } catch (error) {
-    console.warn("Firestore write error in saveProduct, executing locally:", error);
+    console.warn("Firestore write error in saveProduct:", error);
+    firestoreError = error;
   }
 
   // Always update local storage
@@ -267,6 +291,10 @@ export async function saveProduct(formData: any, productId: string | null = null
     localList.push(savedProd);
   }
   saveLocalProducts(localList);
+
+  if (firestoreError) {
+    throw firestoreError;
+  }
   return savedProd;
 }
 

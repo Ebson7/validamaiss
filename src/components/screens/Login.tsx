@@ -109,6 +109,18 @@ export const LoginValida: React.FC = () => {
         </div>
 
         {/* Google Authentication Button */}
+        {typeof window !== 'undefined' && window.self !== window.top && (
+          <div className="mb-4.5 p-3.5 bg-amber-50/70 border border-amber-200 text-xs text-amber-805 text-amber-900 rounded-xl space-y-1 text-left leading-relaxed font-sans shadow-2xs">
+            <span className="font-bold text-amber-950 block flex items-center gap-1">
+              ⚠️ Restrição de Cookies do Iframe
+            </span>
+            <p className="text-[10.5px]">
+              O login com o Google poderá falhar temporariamente no visualizador do editor por conta de restrições de cookies do navegador em iframes. 
+              Caso veja um erro de login, <strong>abra esta aplicação em uma aba externa</strong> clicando no ícone no canto superior direito para entrar perfeitamente!
+            </p>
+          </div>
+        )}
+
         <button
           id="login_google_btn"
           type="button"
