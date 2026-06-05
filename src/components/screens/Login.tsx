@@ -8,7 +8,7 @@ import { useApp } from '../../context/AppContext';
 import { ShoppingBag, Mail, Lock, LogIn, Sparkles, HelpCircle } from 'lucide-react';
 
 export const LoginValida: React.FC = () => {
-  const { loginUser, navigateTo } = useApp();
+  const { loginUser, loginWithGoogle, navigateTo } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,6 +21,17 @@ export const LoginValida: React.FC = () => {
     setLoading(true);
     try {
       await loginUser(email.trim(), password);
+    } catch {
+      // Error handles inside context
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      await loginWithGoogle();
     } catch {
       // Error handles inside context
     } finally {
@@ -91,6 +102,29 @@ export const LoginValida: React.FC = () => {
           </button>
         </form>
 
+        {/* Separator */}
+        <div className="relative my-5 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200/80" /></div>
+          <span className="relative bg-[#f8fafc]/95 px-3.5 py-0.5 rounded-full text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider">Ou acesse com</span>
+        </div>
+
+        {/* Google Authentication Button */}
+        <button
+          id="login_google_btn"
+          type="button"
+          disabled={loading}
+          onClick={handleGoogleSignIn}
+          className="w-full py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl shadow-2xs hover:shadow-xs cursor-pointer transition-all flex items-center justify-center gap-2.5 disabled:opacity-50"
+        >
+          <svg className="w-4 h-3.5 shrink-0" viewBox="0 0 24 24">
+            <path fill="#EA4335" d="M12.04 5.01c1.55 0 2.94.53 4.04 1.58l3.01-3c-1.83-1.7-4.22-2.73-7.05-2.73C7.22.86 3.19 3.56 1.15 7.5l3.87 3c.91-2.72 3.44-4.49 7.02-4.49z"/>
+            <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.35H12v4.51h6.46c-.29 1.48-1.12 2.73-2.38 3.58l3.71 2.88c2.16-1.99 3.7-4.91 3.7-8.62z"/>
+            <path fill="#FBBC05" d="M5.02 14.5c-.24-.72-.37-1.48-.37-2.27s.13-1.55.37-2.27L1.15 7.5C.3 9.22 0 10.97 0 12.23s.3 3.01.85 4.73l4.17-2.46z" />
+            <path fill="#34A853" d="M12 23.14c3.24 0 5.96-1.07 7.95-2.91l-3.71-2.88c-1.04.7-2.36 1.12-4.24 1.12-3.58 0-6.11-1.77-7.02-4.49l-3.87 3c2.04 3.94 6.07 6.66 10.89 6.66z"/>
+          </svg>
+          Entrar com conta Google
+        </button>
+
         {/* Quick Access Buttons */}
         <div className="mt-5 p-4 rounded-2xl bg-white/40 border border-white/40 space-y-2">
           <p className="text-[10px] text-center font-bold text-gray-500 font-mono uppercase tracking-wider">Acesso Rápido de Teste (Sem digitação)</p>
@@ -146,14 +180,25 @@ export const LoginValida: React.FC = () => {
             Problemas ao conectar no Firebase? Veja esta dica.
           </button>
           {showConfigTip && (
-            <div className="mt-3 p-3 bg-white/50 border border-white/30 text-left rounded-xl text-[10px] text-slate-600 leading-relaxed space-y-1.5 backdrop-blur-sm shadow-xs">
+            <div className="mt-3 p-3 bg-white/50 border border-white/30 text-left rounded-xl text-[10px] text-slate-600 leading-relaxed space-y-2.5 backdrop-blur-sm shadow-xs">
               <span className="font-bold text-slate-800 block">Dica para o Desenvolvedor:</span>
-              <p>Certifique-se de ativar o provedor de login com <strong>E-mail/Senha</strong> no Firebase Console:</p>
-              <ol className="list-decimal pl-4 space-y-0.5 font-sans">
-                <li>Acesse o Firebase Console</li>
-                <li>Vá até <strong>Authentication &gt; Sign-in method</strong></li>
-                <li>Clique em <strong>Adicionar novo provedor</strong>, escolha <strong>E-mail/Senha</strong>, ligue a chavinha e salve.</li>
-              </ol>
+              <p>Certifique-se de ativar os provedores de login com <strong>E-mail/Senha</strong> e <strong>Google</strong> no Firebase Console:</p>
+              <div className="space-y-1">
+                <span className="font-bold text-slate-705 text-[9px] uppercase tracking-wider block text-slate-700">Para E-mail e Senha:</span>
+                <ol className="list-decimal pl-4 space-y-0.5 font-sans">
+                  <li>Acesse o Firebase Console</li>
+                  <li>Vá até <strong>Authentication &gt; Sign-in method</strong></li>
+                  <li>Adicione <strong>E-mail/Senha</strong>, habilite e salve.</li>
+                </ol>
+              </div>
+              <div className="space-y-1">
+                <span className="font-bold text-slate-705 text-[9px] uppercase tracking-wider block text-slate-700">Para Google Sign-In:</span>
+                <ol className="list-decimal pl-4 space-y-0.5 font-sans">
+                  <li>Acesse o Firebase Console</li>
+                  <li>Vá até <strong>Authentication &gt; Sign-in method</strong></li>
+                  <li>Adicione <strong>Google</strong>, configure as credenciais, o e-mail de suporte e salve.</li>
+                </ol>
+              </div>
             </div>
           )}
         </div>

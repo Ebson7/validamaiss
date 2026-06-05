@@ -3,21 +3,82 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Produto } from '../types';
-import { Calendar, Store, MapPin, AlertCircle, ShoppingCart } from 'lucide-react';
+import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check } from 'lucide-react';
 
 interface ProdutoCardProps {
   produto: Produto;
 }
 
 export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
-  const { navigateTo, user, avaliacoes } = useApp();
+  const { navigateTo, user, avaliacoes, showAlert } = useApp();
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   const original = produto.precoOriginal;
   const promo = produto.precoPromocional;
   const discountPercent = original > 0 ? Math.round(((original - promo) / original) * 100) : 0;
+
+  // Construct absolute sharing links using clean URLSearchParams
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}${window.location.pathname}?prodId=${produto.id}`
+    : `https://validamais.com/produtos?prodId=${produto.id}`;
+
+  const discountFormatted = discountPercent > 0 ? `(${discountPercent}% OFF!)` : '';
+
+  const shareText = `🚨 *Oferta Imperdível no ValidaMais!* 🚨
+  
+*${produto.nomeProduto}* com preço super reduzido!
+💵 De: R$ ${produto.precoOriginal.toFixed(2).replace('.', ',')}
+🔥 *Por apenas: R$ ${produto.precoPromocional.toFixed(2).replace('.', ',')}* ${discountFormatted}
+🏢 Local de Retirada: *${produto.nomeLoja}*
+📍 Endereço: ${produto.endereco}
+
+Não perca essa oportunidade de economizar e evitar o desperdício alimentar! Veja mais detalhes e reserve aqui:
+👇👇👇
+${shareUrl}`;
+
+  const handleShareWhatsApp = () => {
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    showAlert('Direcionando para o WhatsApp...', 'success');
+  };
+
+  const handleShareTelegram = () => {
+    const url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    showAlert('Direcionando para o Telegram...', 'success');
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        // Fallback option for sandboxed context environments
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setIsCopied(true);
+      showAlert('Link de compartilhamento copiado!', 'success');
+      setTimeout(() => {
+        setIsCopied(false);
+        setShowShareMenu(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Falha ao copiar link:', err);
+      showAlert('Não foi possível copiar o link automaticamente.', 'error');
+    }
+  };
 
   const avaliacoesLoja = (avaliacoes || []).filter(
     a => a.nomeLoja.toLowerCase().trim() === (produto?.nomeLoja || '').toLowerCase().trim()
@@ -156,10 +217,85 @@ export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
             </span>
           </div>
 
-          {/* Product Name */}
-          <h3 className="font-extrabold text-gray-900 group-hover:text-emerald-700 transition-colors line-clamp-1 text-base leading-tight">
-            {produto.nomeProduto}
-          </h3>
+          {/* Product Name and Share Popover Trigger Button */}
+          <div className="flex items-start justify-between gap-1.5 mt-1 relative">
+            <h3 className="font-extrabold text-gray-900 group-hover:text-emerald-700 transition-colors line-clamp-1 text-base leading-tight flex-1">
+              {produto.nomeProduto}
+            </h3>
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowShareMenu(!showShareMenu);
+                }}
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                  showShareMenu
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                    : 'bg-white/50 border-gray-200/60 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300'
+                }`}
+                title="Compartilhar oferta"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </button>
+
+              {showShareMenu && (
+                <>
+                  <div className="fixed inset-0 z-20 cursor-default" onClick={(e) => { e.stopPropagation(); setShowShareMenu(false); }} />
+                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-150/70 p-2 z-30 flex flex-col gap-1 text-left">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShareWhatsApp();
+                        setShowShareMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-all cursor-pointer"
+                    >
+                      <svg className="w-4 h-4 fill-emerald-600 shrink-0" viewBox="0 0 24 24">
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-1.991-.001-3.952-.493-5.717-1.428L0 24zm6.59-4.846l.385.228a9.92 9.92 0 0 0 5.033 1.378c5.495.003 9.965-4.464 9.969-9.962a9.882 9.882 0 0 0-2.88-7.051C17.27 1.871 14.743.857 12.005.857 6.513.857 2.046 5.328 2.043 10.825c-.001 2.012.523 3.978 1.517 5.714l.244.427-1.02 3.729 3.863-.987z"/>
+                      </svg>
+                      Enviar no WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShareTelegram();
+                        setShowShareMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-sky-50 hover:text-sky-700 transition-all cursor-pointer"
+                    >
+                      <svg className="w-4 h-4 text-sky-500 fill-current shrink-0" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.24-5.52 3.64-.52.36-.97.54-1.34.53-.41-.01-1.21-.23-1.8-.42-.72-.24-1.3-.37-1.25-.79.03-.22.33-.44.9-.68 3.51-1.53 5.85-2.54 7.02-3 .3-.12.58-.18.83-.17.29.01.52.12.63.36.12.25.13.56.08.84zm1.5-1.5c.1.2 0 .4 0 .5s-.1.2-.2.2h-.1l-.1-.1-.1-.1.1-.1s.3-.4-.1-.4h-.1l.1-.1c-.1.1-.1.1-.1.1z"/>
+                      </svg>
+                      Enviar no Telegram
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCopyLink();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+                    >
+                      {isCopied ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="text-emerald-700">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 text-gray-500 shrink-0" />
+                          <span>Copiar Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
 
           {/* Product Description */}
           {produto.descricao && (

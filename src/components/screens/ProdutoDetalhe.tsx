@@ -5,13 +5,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star } from 'lucide-react';
+import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2 } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
   const { selectedProductId, navigateTo, user, showAlert, produtos, produtosLoading: loading, createReservation, avaliacoes } = useApp();
   const [quantidade, setQuantidade] = useState(1);
   const [reserving, setReserving] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isCopied, setIsCopied] = useState(false);
 
   const produto = produtos.find(p => p.id === selectedProductId) || null;
 
@@ -73,6 +74,66 @@ export const ProdutoDetalheValida: React.FC = () => {
   const expiry = checkExpiryStatus(produto.dataValidade);
   const totalAvailable = produto.quantidadeDisponivel - produto.quantidadeReservada;
   const isEsgotado = totalAvailable <= 0 || produto.status === 'esgotado';
+
+  // Construct sharing details
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}${window.location.pathname}?prodId=${produto?.id}`
+    : `https://validamais.com/produtos?prodId=${produto?.id}`;
+
+  const discountFormatted = discountPercent > 0 ? `(${discountPercent}% OFF!)` : '';
+
+  const shareText = produto
+    ? `🚨 *Oferta Imperdível no ValidaMais!* 🚨
+  
+*${produto.nomeProduto}* com preço super reduzido!
+💵 De: R$ ${produto.precoOriginal.toFixed(2).replace('.', ',')}
+🔥 *Por apenas: R$ ${produto.precoPromocional.toFixed(2).replace('.', ',')}* ${discountFormatted}
+🏢 Local de Retirada: *${produto.nomeLoja}*
+📍 Endereço: ${produto.endereco}
+
+Não perca essa oportunidade de economizar e evitar o desperdício alimentar! Veja mais detalhes e reserve aqui:
+👇👇👇
+${shareUrl}`
+    : '';
+
+  const handleShareWhatsAppDetail = () => {
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    showAlert('Direcionando para o WhatsApp...', 'success');
+  };
+
+  const handleShareTelegramDetail = () => {
+    const url = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    showAlert('Direcionando para o Telegram...', 'success');
+  };
+
+  const handleCopyLinkDetail = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        // Fallback option for sandboxed contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setIsCopied(true);
+      showAlert('Link de compartilhamento copiado!', 'success');
+      setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Falha ao copiar link:', err);
+      showAlert('Não foi possível copiar o link automaticamente.', 'error');
+    }
+  };
 
   const handleIncrement = () => {
     if (quantidade < totalAvailable) {
@@ -235,6 +296,50 @@ export const ProdutoDetalheValida: React.FC = () => {
                 <span className="text-2xl font-black text-emerald-600 leading-none">
                   {produto.precoPromocional.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </span>
+              </div>
+            </div>
+
+            {/* Quick Share section */}
+            <div className="bg-white/40 backdrop-blur-xs border border-white/50 p-4 rounded-2xl space-y-2.5">
+              <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider block">Gostou desse lote? Compartilhe essa oferta!</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleShareWhatsAppDetail}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 24 24">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-1.991-.001-3.952-.493-5.717-1.428L0 24zm6.59-4.846l.385.228a9.92 9.92 0 0 0 5.033 1.378c5.495.003 9.965-4.464 9.969-9.962a9.882 9.882 0 0 0-2.88-7.051C17.27 1.871 14.743.857 12.005.857 6.513.857 2.046 5.328 2.043 10.825c-.001 2.012.523 3.978 1.517 5.714l.244.427-1.02 3.729 3.863-.987z"/>
+                  </svg>
+                  WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareTelegramDetail}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-sky-505 bg-sky-500 hover:bg-sky-600 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <svg className="w-4 h-4 text-white fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.24-5.52 3.64-.52.36-.97.54-1.34.53-.41-.01-1.21-.23-1.8-.42-.72-.24-1.3-.37-1.25-.79.03-.22.33-.44.9-.68 3.51-1.53 5.85-2.54 7.02-3 .3-.12.58-.18.83-.17.29.01.52.12.63.36.12.25.13.56.08.84zm1.5-1.5c.1.2 0 .4 0 .5s-.1.2-.2.2h-.1l-.1-.1-.1-.1.1-.1s.3-.4-.1-.4h-.1l.1-.1c-.1.1-.1.1-.1.1z"/>
+                  </svg>
+                  Telegram
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyLinkDetail}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
+                >
+                  {isCopied ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Link Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 text-gray-500 shrink-0" />
+                      <span>Copiar Link</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

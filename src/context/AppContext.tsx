@@ -9,7 +9,9 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut,
-  User as FirebaseUser 
+  User as FirebaseUser,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { getToken } from 'firebase/messaging';
 import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
@@ -64,6 +66,7 @@ interface AppContextType {
   showAlert: (message: string, type: Alert['type']) => void;
   navigateTo: (screen: ScreenType, productId?: string | null) => void;
   loginUser: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   registerUser: (email: string, password: string, name: string, role: UserRole) => Promise<void>;
   logoutUser: () => Promise<void>;
   saveProduct: (formData: any, productId: string | null) => Promise<Produto>;
@@ -213,6 +216,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     );
     return unsubscribe;
+  }, []);
+
+  // Deep link parsing on startup to recover shared products
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const sharedProdId = params.get('prodId');
+        if (sharedProdId) {
+          setSelectedProductId(sharedProdId);
+          setCurrentScreen('produto-detalhe');
+          // Clean the URL query parameters so it does not interfere on manual refresh
+          const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+          window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+        }
+      } catch (err) {
+        console.warn("Deep link parser has been skipped due to environment limits: ", err);
+      }
+    }
   }, []);
 
   // Real-time synchronization for 'categorias'
@@ -650,6 +672,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showAlert('Usuário não cadastrado. Por favor, cadastre-se para acessar o sistema.', 'error');
     setLoading(false);
     throw new Error('Usuário não cadastrado.');
+  };
+
+  // Google Login handler
+  const loginWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const cred = await signInWithPopup(auth, provider);
+      const email = cred.user.email || '';
+      const nome = cred.user.displayName || 'Usuário Google';
+      
+      // Update/Create user document in Firestore/Mock DB
+      let profile = await getUserProfile(cred.user.uid);
+      if (!profile) {
+        // Create user with default role: user
+        profile = await createOrUpdateUserDocument(cred.user.uid, email, nome, 'user');
+      }
+      
+      setUser(profile);
+      localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
+      showAlert(`Bem-vindo, ${profile.nome}! (Login com Google)`, 'success');
+      
+      if (profile.role === 'admin') {
+        navigateTo('admin-dashboard');
+      } else {
+        navigateTo('home');
+      }
+    } catch (err: any) {
+      console.error("Google login failed:", err);
+      // Don't show cancel error as a scary message
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        showAlert(err.message || 'Erro ao realizar login com o Google.', 'error');
+      }
+      setLoading(false);
+      throw err;
+    }
   };
 
   // Register handler
@@ -1162,6 +1220,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showAlert,
         navigateTo,
         loginUser,
+        loginWithGoogle,
         registerUser,
         logoutUser,
         saveProduct,
