@@ -5,6 +5,12 @@
 
 export type UserRole = 'user' | 'admin';
 
+export interface Categoria {
+  id?: string;
+  nome: string;
+  criadoEm?: any;
+}
+
 export interface Usuario {
   uid: string;
   email: string;

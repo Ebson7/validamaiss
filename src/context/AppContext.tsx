@@ -11,10 +11,10 @@ import {
   signOut,
   User as FirebaseUser 
 } from 'firebase/auth';
-import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
-import { Usuario, UserRole, Produto, Reserva } from '../types';
+import { Usuario, UserRole, Produto, Reserva, Categoria } from '../types';
 import { 
   getProducts, 
   getStoreProducts, 
@@ -39,7 +39,8 @@ export type ScreenType =
   | 'admin-produtos' 
   | 'admin-produtos-novo' 
   | 'admin-produtos-editar'
-  | 'admin-reservas';
+  | 'admin-reservas'
+  | 'admin-categorias';
 
 interface Alert {
   type: 'success' | 'error' | 'warning' | 'info';
@@ -55,6 +56,7 @@ interface AppContextType {
   alert: Alert | null;
   produtos: Produto[];
   reservas: Reserva[];
+  categorias: Categoria[];
   produtosLoading: boolean;
   reservasLoading: boolean;
   setAlert: (alert: Alert | null) => void;
@@ -68,6 +70,8 @@ interface AppContextType {
   createReservation: (produtoId: string, quantidade: number) => Promise<Reserva>;
   cancelReservation: (reservaId: string) => Promise<void>;
   updateReservationStatus: (reservaId: string, status: 'retirado' | 'cancelado') => Promise<void>;
+  addCategory: (nome: string) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
   seedProducts: () => Promise<void>;
   clearAllDatabaseUsers: () => Promise<void>;
 }
@@ -87,6 +91,15 @@ const DEFAULT_USERS: Usuario[] = [
     role: 'admin',
     criadoEm: new Date().toISOString()
   }
+];
+
+const DEFAULT_CATEGORIES: Categoria[] = [
+  { id: 'cat_laticinios', nome: 'Laticínios' },
+  { id: 'cat_padaria', nome: 'Padaria' },
+  { id: 'cat_hortifruti', nome: 'Hortifrúti' },
+  { id: 'cat_carnes', nome: 'Carnes' },
+  { id: 'cat_bebidas', nome: 'Bebidas' },
+  { id: 'cat_mercearia', nome: 'Mercearia' }
 ];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -116,6 +129,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [reservas, setReservas] = useState<Reserva[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [produtosLoading, setProdutosLoading] = useState(true);
   const [reservasLoading, setReservasLoading] = useState(true);
 
@@ -196,6 +210,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (error) => {
         console.warn("Real-time snapshot reservations subscription failed (normal if offline): ", error);
         setReservasLoading(false);
+      }
+    );
+    return unsubscribe;
+  }, []);
+
+  // Real-time synchronization for 'categorias'
+  useEffect(() => {
+    const loadInitialCategorias = async () => {
+      try {
+        const querySnap = await getDocs(collection(db, 'categorias'));
+        const results: Categoria[] = [];
+        querySnap.forEach((docSnap) => {
+          results.push({ id: docSnap.id, ...docSnap.data() } as Categoria);
+        });
+        if (results.length > 0) {
+          setCategorias(results);
+          localStorage.setItem('validamais_categorias', JSON.stringify(results));
+        } else {
+          // If Firestore collection 'categorias' is empty, auto-seed with DEFAULT_CATEGORIES
+          console.log("Firestore 'categorias' collection is empty. Auto-seeding DEFAULT_CATEGORIES...");
+          const batchSeeds = DEFAULT_CATEGORIES.map(async (cat) => {
+            const docRef = await addDoc(collection(db, 'categorias'), {
+              nome: cat.nome,
+              criadoEm: new Date().toISOString()
+            });
+            return { id: docRef.id, nome: cat.nome, criadoEm: new Date().toISOString() };
+          });
+          const seeded = await Promise.all(batchSeeds);
+          setCategorias(seeded);
+          localStorage.setItem('validamais_categorias', JSON.stringify(seeded));
+        }
+      } catch (error) {
+        console.warn("Direct categories fetch failed, checking localStorage fallback:", error);
+        const local = localStorage.getItem('validamais_categorias');
+        if (local) {
+          setCategorias(JSON.parse(local));
+        } else {
+          setCategorias(DEFAULT_CATEGORIES);
+        }
+      }
+    };
+    loadInitialCategorias();
+
+    const colRef = collection(db, 'categorias');
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        const results: Categoria[] = [];
+        snapshot.forEach((docSnap) => {
+          results.push({ id: docSnap.id, ...docSnap.data() } as Categoria);
+        });
+        if (results.length > 0) {
+          setCategorias(results);
+          localStorage.setItem('validamais_categorias', JSON.stringify(results));
+        }
+      },
+      (error) => {
+        console.warn("Real-time snapshot categories subscription failed (normal if offline): ", error);
+        const local = localStorage.getItem('validamais_categorias');
+        if (local) {
+          setCategorias(JSON.parse(local));
+        } else {
+          setCategorias(DEFAULT_CATEGORIES);
+        }
       }
     );
     return unsubscribe;
@@ -582,6 +660,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addCategory = async (nome: string) => {
+    if (!nome.trim()) return;
+    setLoading(true);
+    try {
+      const colRef = collection(db, 'categorias');
+      const docRef = await addDoc(colRef, {
+        nome: nome.trim(),
+        criadoEm: new Date().toISOString()
+      });
+      const newCat: Categoria = { id: docRef.id, nome: nome.trim(), criadoEm: new Date().toISOString() };
+      setCategorias((prev) => [...prev, newCat]);
+      showAlert(`Categoria '${nome.trim()}' cadastrada com sucesso!`, 'success');
+    } catch (err) {
+      console.warn("Firestore category addition failed, executing locally:", err);
+      const newCatId = `cat_${Date.now()}`;
+      const newCat: Categoria = { id: newCatId, nome: nome.trim(), criadoEm: new Date().toISOString() };
+      const updated = [...categorias, newCat];
+      setCategorias(updated);
+      localStorage.setItem('validamais_categorias', JSON.stringify(updated));
+      showAlert(`Categoria '${nome.trim()}' criada localmente.`, 'success');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, 'categorias', id));
+      setCategorias((prev) => prev.filter(c => c.id !== id));
+      showAlert('Categoria removida com sucesso!', 'success');
+    } catch (err) {
+      console.warn("Firestore category delete failed, executing locally:", err);
+      const updated = categorias.filter(c => c.id !== id);
+      setCategorias(updated);
+      localStorage.setItem('validamais_categorias', JSON.stringify(updated));
+      showAlert('Categoria removida localmente.', 'success');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const seedProducts = async (): Promise<void> => {
     setLoading(true);
     try {
@@ -672,6 +792,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         alert,
         produtos,
         reservas,
+        categorias,
         produtosLoading,
         reservasLoading,
         setAlert,
@@ -685,6 +806,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createReservation,
         cancelReservation,
         updateReservationStatus,
+        addCategory,
+        deleteCategory,
         seedProducts,
         clearAllDatabaseUsers
       }}

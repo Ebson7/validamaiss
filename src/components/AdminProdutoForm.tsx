@@ -52,10 +52,15 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
   onSubmit,
   onCancel
 }) => {
-  const { user } = useApp();
+  const { user, categorias, navigateTo } = useApp();
 
   const [nomeProduto, setNomeProduto] = useState('');
-  const [categoria, setCategoria] = useState('Laticínios');
+  const [categoria, setCategoria] = useState(() => {
+    if (initialProduto && initialProduto.categoria) {
+      return initialProduto.categoria;
+    }
+    return 'Laticínios';
+  });
   const [descricao, setDescricao] = useState('');
   const [precoOriginal, setPrecoOriginal] = useState<number | ''>('');
   const [precoPromocional, setPrecoPromocional] = useState<number | ''>('');
@@ -65,6 +70,39 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
   const [nomeLoja, setNomeLoja] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // CEP Search State inside Admin form
+  const [cepInput, setCepInput] = useState('');
+  const [loadingCep, setLoadingCep] = useState(false);
+
+  const handleCepChange = async (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    let formatted = cleaned;
+    if (cleaned.length > 5) {
+      formatted = `${cleaned.substring(0, 5)}-${cleaned.substring(5, 8)}`;
+    }
+    setCepInput(formatted);
+
+    if (cleaned.length === 8) {
+      setLoadingCep(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cleaned}/json/`);
+        const data = await response.json();
+        if (data.erro) {
+          alert('CEP não encontrado. Por favor, digite manualmente.');
+        } else {
+          const street = data.logradouro ? `${data.logradouro}` : '';
+          const neighborhood = data.bairro ? ` - ${data.bairro}` : '';
+          const cityState = `, ${data.localidade}/${data.uf}`;
+          setEndereco(`${street}${neighborhood}${cityState}`);
+        }
+      } catch (err) {
+        console.warn('Erro ao conectar ao ViaCEP:', err);
+      } finally {
+        setLoadingCep(false);
+      }
+    }
+  };
 
   // Hydrate fields on edit
   useEffect(() => {
@@ -182,17 +220,36 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
 
             {/* Product Category dropdown */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 font-mono uppercase mb-1">Categoria</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs font-bold text-gray-500 font-mono uppercase">Categoria</label>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('admin-categorias')}
+                  className="text-[10px] text-emerald-600 hover:text-emerald-800 font-bold font-mono uppercase cursor-pointer transition-colors"
+                >
+                  + Gerenciar
+                </button>
+              </div>
               <select
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
                 className="w-full text-sm px-4 py-2.5 bg-white/40 border border-white/50 rounded-xl focus:border-emerald-500 focus:bg-white/75 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-medium"
               >
-                {CATEGORY_OPTIONS.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {categorias.map((cat) => (
+                  <option key={cat.id || cat.nome} value={cat.nome}>
+                    {cat.nome}
                   </option>
                 ))}
+                {categorias.length === 0 && (
+                  <>
+                    <option value="Laticínios">Laticínios</option>
+                    <option value="Padaria">Padaria</option>
+                    <option value="Hortifrúti">Hortifrúti</option>
+                    <option value="Carnes">Carnes</option>
+                    <option value="Bebidas">Bebidas</option>
+                    <option value="Mercearia">Mercearia</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
@@ -301,17 +358,36 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
             </div>
           </div>
 
-          {/* Physical Address of store */}
-          <div>
-            <label className="block text-xs font-bold text-gray-500 font-mono uppercase mb-1">Endereço de Retirada Física</label>
-            <input
-              type="text"
-              required
-              value={endereco}
-              onChange={(e) => setEndereco(e.target.value)}
-              placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo / SP"
-              className="w-full text-sm px-4 py-2.5 bg-white/40 border border-white/50 rounded-xl focus:border-emerald-500 focus:bg-white/75 focus:outline-none focus:ring-1 focus:ring-emerald-505 transition-all"
-            />
+          {/* Physical Address of store with CEP search helper */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-1">
+              <label className="block text-xs font-bold text-gray-500 font-mono uppercase mb-1">Buscar por CEP</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  maxLength={9}
+                  placeholder="01000-000"
+                  value={cepInput}
+                  onChange={(e) => handleCepChange(e.target.value)}
+                  className="w-full text-sm px-4 py-2.5 bg-white/40 border border-white/50 rounded-xl focus:border-emerald-500 focus:bg-white/75 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-mono font-bold"
+                />
+                {loadingCep && (
+                  <span className="absolute right-3 top-3 text-xs text-emerald-600 animate-pulse font-mono font-extrabold">...</span>
+                )}
+              </div>
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-xs font-bold text-gray-500 font-mono uppercase mb-1">Endereço de Retirada Física</label>
+              <input
+                type="text"
+                required
+                value={endereco}
+                onChange={(e) => setEndereco(e.target.value)}
+                placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo / SP"
+                className="w-full text-sm px-4 py-2.5 bg-white/40 border border-white/50 rounded-xl focus:border-emerald-500 focus:bg-white/75 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-semibold text-gray-800"
+              />
+            </div>
           </div>
         </div>
 

@@ -15,6 +15,7 @@ import { MinhasReservasValida } from './components/screens/MinhasReservas';
 import { AdminDashboardValida } from './components/screens/AdminDashboard';
 import { AdminProdutosValida } from './components/screens/AdminProdutos';
 import { AdminReservasValida } from './components/screens/AdminReservas';
+import { AdminCategoriasValida } from './components/screens/AdminCategorias';
 import { AlertCircle, CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 
 function AppContent() {
@@ -43,6 +44,8 @@ function AppContent() {
         return <AdminProdutosValida />;
       case 'admin-reservas':
         return <AdminReservasValida />;
+      case 'admin-categorias':
+        return <AdminCategoriasValida />;
       default:
         return <HomeValida />;
     }
