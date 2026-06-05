@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Primitive / Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Entity Validators
+
+    function isValidUsuario(data) {
+      return data.keys().hasAll(['uid', 'email', 'nome', 'role', 'criadoEm']) &&
+        data.keys().size() <= 6 &&
+        data.uid is string && data.uid.size() <= 128 &&
+        data.email is string && data.email.size() <= 256 &&
+        data.nome is string && data.nome.size() <= 100 &&
+        data.role is string && (data.role == 'user' || data.role == 'admin') &&
+        data.criadoEm != null &&
+        (!data.keys().hasAny(['senha']) || (data.senha is string && data.senha.size() <= 128));
+    }
+
+    function isValidProduto(data) {
+      return data.keys().hasAll([
+        'adminId', 'nomeLoja', 'nomeProduto', 'categoria', 
+        'precoOriginal', 'precoPromocional', 'dataValidade', 
+        'quantidadeDisponivel', 'quantidadeReservada', 'status', 
+        'endereco', 'criadoEm'
+      ]) &&
+        data.keys().size() <= 14 &&
+        data.adminId is string && data.adminId.size() <= 128 &&
+        data.nomeLoja is string && data.nomeLoja.size() <= 200 &&
+        data.nomeProduto is string && data.nomeProduto.size() <= 200 &&
+        data.categoria is string && data.categoria.size() <= 100 &&
+        data.precoOriginal is number && data.precoOriginal >= 0 &&
+        data.precoPromocional is number && data.precoPromocional >= 0 &&
+        data.dataValidade is string && data.dataValidade.size() <= 10 &&
+        data.quantidadeDisponivel is number && data.quantidadeDisponivel >= 0 &&
+        data.quantidadeReservada is number && data.quantidadeReservada >= 0 &&
+        data.status is string && (data.status == 'disponivel' || data.status == 'esgotado') &&
+        data.endereco is string && data.endereco.size() <= 300 &&
+        data.criadoEm != null &&
+        (!data.keys().hasAny(['descricao']) || (data.descricao is string && data.descricao.size() <= 2000)) &&
+        (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 1000));
+    }
+
+    function isValidReserva(data) {
+      return data.keys().hasAll([
+        'usuarioId', 'usuarioEmail', 'produtoId', 'nomeProduto', 
+        'nomeLoja', 'quantidade', 'precoTotal', 'status', 
+        'criadoEm', 'atualizadoEm'
+      ]) &&
+        data.keys().size() == 10 &&
+        data.usuarioId is string && data.usuarioId.size() <= 128 &&
+        data.usuarioEmail is string && data.usuarioEmail.size() <= 256 &&
+        data.produtoId is string && data.produtoId.size() <= 128 &&
+        data.nomeProduto is string && data.nomeProduto.size() <= 200 &&
+        data.nomeLoja is string && data.nomeLoja.size() <= 200 &&
+        data.quantidade is number && data.quantidade > 0 &&
+        data.precoTotal is number && data.precoTotal >= 0 &&
+        data.status is string && (data.status == 'pendente' || data.status == 'retirado' || data.status == 'cancelado') &&
+        data.criadoEm != null &&
+        data.atualizadoEm != null;
+    }
+
+    // Collections Matches
+
+    // USUARIOS COLLECTION
+    match /usuarios/{usuarioId} {
+      allow read, get, list: if true;
+      allow create, update: if isValidUsuario(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    // PRODUTOS COLLECTION
+    match /produtos/{produtoId} {
+      allow read, get, list: if true;
+      allow create, update: if isValidProduto(request.resource.data);
+      allow delete: if true;
+    }
+
+    // RESERVAS COLLECTION
+    match /reservas/{reservaId} {
+      allow read, get, list: if true;
+      allow create, update: if isValidReserva(request.resource.data);
+      allow delete: if true;
+    }
+  }
+}
