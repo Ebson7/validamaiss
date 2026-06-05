@@ -13,11 +13,19 @@ interface ProdutoCardProps {
 }
 
 export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
-  const { navigateTo, user } = useApp();
+  const { navigateTo, user, avaliacoes } = useApp();
 
   const original = produto.precoOriginal;
   const promo = produto.precoPromocional;
   const discountPercent = original > 0 ? Math.round(((original - promo) / original) * 100) : 0;
+
+  const avaliacoesLoja = (avaliacoes || []).filter(
+    a => a.nomeLoja.toLowerCase().trim() === (produto?.nomeLoja || '').toLowerCase().trim()
+  );
+
+  const mediaAvaliacao = avaliacoesLoja.length > 0
+    ? (avaliacoesLoja.reduce((sum, a) => sum + a.estrelas, 0) / avaliacoesLoja.length).toFixed(1)
+    : null;
 
   // Calculo de validade
   const checkExpiryStatus = (dateStr: string) => {
@@ -119,11 +127,19 @@ export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
         <div>
           {/* Shop and Category Info */}
           <div className="flex items-center justify-between text-xs text-gray-500 mb-2 gap-2">
-            <div className="flex items-center gap-1 font-semibold text-gray-700 truncate">
-              <Store className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="truncate">{produto.nomeLoja}</span>
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1 font-semibold text-gray-700 truncate">
+                <Store className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">{produto.nomeLoja}</span>
+              </div>
+              {mediaAvaliacao && (
+                <div className="flex items-center gap-0.5 text-[10px] text-amber-600 font-bold font-mono mt-0.5">
+                  <span>★ {mediaAvaliacao}</span>
+                  <span className="text-gray-400 font-normal font-sans">({avaliacoesLoja.length})</span>
+                </div>
+              )}
             </div>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${getCategoryBadgeColor(produto.categoria)}`}>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 self-start ${getCategoryBadgeColor(produto.categoria)}`}>
               {produto.categoria}
             </span>
           </div>

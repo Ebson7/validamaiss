@@ -14,7 +14,7 @@ import {
 import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
-import { Usuario, UserRole, Produto, Reserva, Categoria } from '../types';
+import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja } from '../types';
 import { 
   getProducts, 
   getStoreProducts, 
@@ -72,6 +72,8 @@ interface AppContextType {
   updateReservationStatus: (reservaId: string, status: 'retirado' | 'cancelado') => Promise<void>;
   addCategory: (nome: string) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  avaliacoes: AvaliacaoLoja[];
+  addAvaliacaoLoja: (reservaId: string, nomeLoja: string, estrelas: number, comentario: string) => Promise<void>;
   seedProducts: () => Promise<void>;
   clearAllDatabaseUsers: () => Promise<void>;
 }
@@ -127,32 +129,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [alert, setAlertState] = useState<Alert | null>(null);
 
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [reservas, setReservas] = useState<Reserva[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [produtosLoading, setProdutosLoading] = useState(true);
-  const [reservasLoading, setReservasLoading] = useState(true);
+  const [produtos, setProdutos] = useState<Produto[]>(() => {
+    const saved = localStorage.getItem('validamais_produtos');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [reservas, setReservas] = useState<Reserva[]>(() => {
+    const saved = localStorage.getItem('validamais_reservas');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [categorias, setCategorias] = useState<Categoria[]>(() => {
+    const saved = localStorage.getItem('validamais_categorias');
+    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+  });
+  const [avaliacoes, setAvaliacoes] = useState<AvaliacaoLoja[]>(() => {
+    const saved = localStorage.getItem('validamais_avaliacoes');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [produtosLoading, setProdutosLoading] = useState(() => {
+    const saved = localStorage.getItem('validamais_produtos');
+    return !saved; // Only show spinner if cache is empty
+  });
+  const [reservasLoading, setReservasLoading] = useState(() => {
+    const saved = localStorage.getItem('validamais_reservas');
+    return !saved; // Only show spinner if cache is empty
+  });
 
   // Real-time synchronization for 'produtos'
   useEffect(() => {
-    setProdutosLoading(true);
-
-    const loadInitialProdutos = async () => {
-      try {
-        const results = await getProducts();
-        setProdutos(results);
-      } catch (error) {
-        console.warn("Direct produtos fetch failed, checking localStorage fallback:", error);
-        const local = localStorage.getItem('validamais_produtos');
-        if (local) {
-          setProdutos(JSON.parse(local));
-        }
-      } finally {
-        setProdutosLoading(false);
-      }
-    };
-    loadInitialProdutos();
-
     const colRef = collection(db, 'produtos');
     const unsubscribe = onSnapshot(
       colRef,
@@ -161,14 +164,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         snapshot.forEach((docSnap) => {
           results.push({ id: docSnap.id, ...docSnap.data() } as Produto);
         });
-        if (results.length > 0) {
-          setProdutos(results);
-          localStorage.setItem('validamais_produtos', JSON.stringify(results));
-        }
+        setProdutos(results);
+        localStorage.setItem('validamais_produtos', JSON.stringify(results));
         setProdutosLoading(false);
       },
       (error) => {
-        console.warn("Real-time snapshot products subscription failed (normal if offline): ", error);
+        console.warn("Real-time snapshot products subscription failed: ", error);
         setProdutosLoading(false);
       }
     );
@@ -177,24 +178,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Real-time synchronization for 'reservas'
   useEffect(() => {
-    setReservasLoading(true);
-
-    const loadInitialReservas = async () => {
-      try {
-        const results = await dbGetReservations();
-        setReservas(results);
-      } catch (error) {
-        console.warn("Direct reservas fetch failed, checking localStorage fallback:", error);
-        const local = localStorage.getItem('validamais_reservas');
-        if (local) {
-          setReservas(JSON.parse(local));
-        }
-      } finally {
-        setReservasLoading(false);
-      }
-    };
-    loadInitialReservas();
-
     const colRef = collection(db, 'reservas');
     const unsubscribe = onSnapshot(
       colRef,
@@ -208,7 +191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setReservasLoading(false);
       },
       (error) => {
-        console.warn("Real-time snapshot reservations subscription failed (normal if offline): ", error);
+        console.warn("Real-time snapshot reservations subscription failed: ", error);
         setReservasLoading(false);
       }
     );
@@ -217,42 +200,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Real-time synchronization for 'categorias'
   useEffect(() => {
-    const loadInitialCategorias = async () => {
-      try {
-        const querySnap = await getDocs(collection(db, 'categorias'));
-        const results: Categoria[] = [];
-        querySnap.forEach((docSnap) => {
-          results.push({ id: docSnap.id, ...docSnap.data() } as Categoria);
-        });
-        if (results.length > 0) {
-          setCategorias(results);
-          localStorage.setItem('validamais_categorias', JSON.stringify(results));
-        } else {
-          // If Firestore collection 'categorias' is empty, auto-seed with DEFAULT_CATEGORIES
-          console.log("Firestore 'categorias' collection is empty. Auto-seeding DEFAULT_CATEGORIES...");
-          const batchSeeds = DEFAULT_CATEGORIES.map(async (cat) => {
-            const docRef = await addDoc(collection(db, 'categorias'), {
-              nome: cat.nome,
-              criadoEm: new Date().toISOString()
-            });
-            return { id: docRef.id, nome: cat.nome, criadoEm: new Date().toISOString() };
-          });
-          const seeded = await Promise.all(batchSeeds);
-          setCategorias(seeded);
-          localStorage.setItem('validamais_categorias', JSON.stringify(seeded));
-        }
-      } catch (error) {
-        console.warn("Direct categories fetch failed, checking localStorage fallback:", error);
-        const local = localStorage.getItem('validamais_categorias');
-        if (local) {
-          setCategorias(JSON.parse(local));
-        } else {
-          setCategorias(DEFAULT_CATEGORIES);
-        }
-      }
-    };
-    loadInitialCategorias();
-
     const colRef = collection(db, 'categorias');
     const unsubscribe = onSnapshot(
       colRef,
@@ -264,16 +211,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (results.length > 0) {
           setCategorias(results);
           localStorage.setItem('validamais_categorias', JSON.stringify(results));
+        } else {
+          // If Firestore collection 'categorias' is empty, seed it on demand asynchronously
+          const seedCategoriesAsync = async () => {
+            const hasSeeded = localStorage.getItem('validamais_categorias_seeded');
+            if (!hasSeeded) {
+              console.log("Firestore 'categorias' collection is empty. Auto-seeding DEFAULT_CATEGORIES...");
+              try {
+                const batchSeeds = DEFAULT_CATEGORIES.map(async (cat) => {
+                  const docRef = await addDoc(collection(db, 'categorias'), {
+                    nome: cat.nome,
+                    criadoEm: new Date().toISOString()
+                  });
+                  return { id: docRef.id, nome: cat.nome, criadoEm: new Date().toISOString() };
+                });
+                await Promise.all(batchSeeds);
+                localStorage.setItem('validamais_categorias_seeded', 'true');
+              } catch (e) {
+                console.warn("Failed automatic categories seeding in background:", e);
+              }
+            }
+          };
+          seedCategoriesAsync();
         }
       },
       (error) => {
-        console.warn("Real-time snapshot categories subscription failed (normal if offline): ", error);
-        const local = localStorage.getItem('validamais_categorias');
-        if (local) {
-          setCategorias(JSON.parse(local));
-        } else {
-          setCategorias(DEFAULT_CATEGORIES);
-        }
+        console.warn("Real-time snapshot categories subscription failed: ", error);
+      }
+    );
+    return unsubscribe;
+  }, []);
+
+  // Real-time synchronization for 'avaliacoes'
+  useEffect(() => {
+    const colRef = collection(db, 'avaliacoes');
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        const results: AvaliacaoLoja[] = [];
+        snapshot.forEach((docSnap) => {
+          results.push({ id: docSnap.id, ...docSnap.data() } as AvaliacaoLoja);
+        });
+        setAvaliacoes(results);
+        localStorage.setItem('validamais_avaliacoes', JSON.stringify(results));
+      },
+      (error) => {
+        console.warn("Real-time snapshot reviews subscription failed: ", error);
       }
     );
     return unsubscribe;
@@ -287,6 +270,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const seedMockUsersInFirestore = async () => {
+      // Performance guard: Check if already seeded once on this client
+      const alreadySeeded = localStorage.getItem('validamais_mock_seeded');
+      if (alreadySeeded === 'true') return;
+
       try {
         for (const u of DEFAULT_USERS) {
           const simulatedUid = 'sim_' + u.email.replace(/[^a-zA-Z0-9]/g, '_');
@@ -295,6 +282,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             await createOrUpdateUserDocument(simulatedUid, u.email, u.nome, u.role, '123456');
           }
         }
+        localStorage.setItem('validamais_mock_seeded', 'true');
       } catch (err) {
         console.warn("Firestore user seeding skipped or failed:", err);
       }
@@ -702,6 +690,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addAvaliacaoLoja = async (reservaId: string, nomeLoja: string, estrelas: number, comentario: string) => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const colRef = collection(db, 'avaliacoes');
+      const docRef = await addDoc(colRef, {
+        reservaId,
+        nomeLoja,
+        usuarioId: user.uid,
+        usuarioEmail: user.email,
+        estrelas,
+        comentario: comentario.trim(),
+        criadoEm: new Date().toISOString()
+      });
+      
+      const newReview: AvaliacaoLoja = {
+        id: docRef.id,
+        reservaId,
+        nomeLoja,
+        usuarioId: user.uid,
+        usuarioEmail: user.email,
+        estrelas,
+        comentario: comentario.trim(),
+        criadoEm: new Date().toISOString()
+      };
+      const updated = [...avaliacoes, newReview];
+      setAvaliacoes(updated);
+      localStorage.setItem('validamais_avaliacoes', JSON.stringify(updated));
+      showAlert('Avaliação enviada com sucesso! Obrigado pelo seu feedback.', 'success');
+    } catch (err) {
+      console.warn("Firestore reviews creation failed, executing locally:", err);
+      const newReviewId = `rev_${Date.now()}`;
+      const newReview: AvaliacaoLoja = {
+        id: newReviewId,
+        reservaId,
+        nomeLoja,
+        usuarioId: user.uid,
+        usuarioEmail: user.email,
+        estrelas,
+        comentario: comentario.trim(),
+        criadoEm: new Date().toISOString()
+      };
+      const updated = [...avaliacoes, newReview];
+      setAvaliacoes(updated);
+      localStorage.setItem('validamais_avaliacoes', JSON.stringify(updated));
+      showAlert('Avaliação salva localmente. Obrigado!', 'success');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const seedProducts = async (): Promise<void> => {
     setLoading(true);
     try {
@@ -793,6 +832,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         produtos,
         reservas,
         categorias,
+        avaliacoes,
         produtosLoading,
         reservasLoading,
         setAlert,
@@ -808,6 +848,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateReservationStatus,
         addCategory,
         deleteCategory,
+        addAvaliacaoLoja,
         seedProducts,
         clearAllDatabaseUsers
       }}

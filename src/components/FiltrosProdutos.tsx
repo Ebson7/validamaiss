@@ -23,6 +23,26 @@ interface FiltrosProdutosProps {
   stores: string[];
 }
 
+const getCachedCep = (cep: string): any => {
+  try {
+    const raw = sessionStorage.getItem('validamais_cep_cache');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed[cep] || null;
+    }
+  } catch (e) {}
+  return null;
+};
+
+const setCachedCep = (cep: string, data: any) => {
+  try {
+    const raw = sessionStorage.getItem('validamais_cep_cache') || '{}';
+    const parsed = JSON.parse(raw);
+    parsed[cep] = data;
+    sessionStorage.setItem('validamais_cep_cache', JSON.stringify(parsed));
+  } catch (e) {}
+};
+
 export const FiltrosProdutos: React.FC<FiltrosProdutosProps> = ({
   searchQuery,
   setSearchQuery,
@@ -93,12 +113,20 @@ export const FiltrosProdutos: React.FC<FiltrosProdutosProps> = ({
                 setCepQuery(formatted);
                 
                 if (cleaned.length === 8) {
+                  // Check cache first
+                  const cached = getCachedCep(cleaned);
+                  if (cached) {
+                    setCepResolvedRegion(cached.region);
+                    return;
+                  }
+
                   try {
                     const response = await fetch(`https://viacep.com.br/ws/${cleaned}/json/`);
                     const data = await response.json();
                     if (!data.erro) {
                       const region = data.bairro || data.localidade || '';
                       setCepResolvedRegion(region);
+                      setCachedCep(cleaned, { region });
                     } else {
                       setCepResolvedRegion('');
                       alert('CEP não localizado no ViaCEP.');

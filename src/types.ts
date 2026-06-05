@@ -51,3 +51,15 @@ export interface Reserva {
   criadoEm: any; // Firestore Timestamp
   atualizadoEm: any; // Firestore Timestamp
 }
+
+export interface AvaliacaoLoja {
+  id?: string;
+  reservaId: string;
+  nomeLoja: string;
+  usuarioId: string;
+  usuarioEmail: string;
+  estrelas: number; // 1-5
+  comentario: string;
+  criadoEm: any; // ISO date string or Firestore Timestamp
+}
+

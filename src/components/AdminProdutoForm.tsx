@@ -84,6 +84,18 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
     setCepInput(formatted);
 
     if (cleaned.length === 8) {
+      // Check cache first to avoid slow HTTP requests
+      try {
+        const raw = sessionStorage.getItem('validamais_cep_cache');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed[cleaned] && parsed[cleaned].address) {
+            setEndereco(parsed[cleaned].address);
+            return;
+          }
+        }
+      } catch (e) {}
+
       setLoadingCep(true);
       try {
         const response = await fetch(`https://viacep.com.br/ws/${cleaned}/json/`);
@@ -94,7 +106,16 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
           const street = data.logradouro ? `${data.logradouro}` : '';
           const neighborhood = data.bairro ? ` - ${data.bairro}` : '';
           const cityState = `, ${data.localidade}/${data.uf}`;
-          setEndereco(`${street}${neighborhood}${cityState}`);
+          const fullAddress = `${street}${neighborhood}${cityState}`;
+          setEndereco(fullAddress);
+
+          // Save to cache
+          try {
+            const raw = sessionStorage.getItem('validamais_cep_cache') || '{}';
+            const parsed = JSON.parse(raw);
+            parsed[cleaned] = { region: data.bairro || data.localidade || '', address: fullAddress };
+            sessionStorage.setItem('validamais_cep_cache', JSON.stringify(parsed));
+          } catch (e) {}
         }
       } catch (err) {
         console.warn('Erro ao conectar ao ViaCEP:', err);

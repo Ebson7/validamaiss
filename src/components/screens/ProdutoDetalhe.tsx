@@ -5,14 +5,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info } from 'lucide-react';
+import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
-  const { selectedProductId, navigateTo, user, showAlert, produtos, produtosLoading: loading, createReservation } = useApp();
+  const { selectedProductId, navigateTo, user, showAlert, produtos, produtosLoading: loading, createReservation, avaliacoes } = useApp();
   const [quantidade, setQuantidade] = useState(1);
   const [reserving, setReserving] = useState(false);
 
   const produto = produtos.find(p => p.id === selectedProductId) || null;
+
+  const avaliacoesLoja = avaliacoes.filter(
+    a => a.nomeLoja.toLowerCase().trim() === (produto?.nomeLoja || '').toLowerCase().trim()
+  );
+
+  const mediaAvaliacao = avaliacoesLoja.length > 0
+    ? (avaliacoesLoja.reduce((sum, a) => sum + a.estrelas, 0) / avaliacoesLoja.length).toFixed(1)
+    : null;
 
   useEffect(() => {
     if (!selectedProductId) {
@@ -145,9 +153,19 @@ export const ProdutoDetalheValida: React.FC = () => {
         {/* Info panel */}
         <div className="flex flex-col justify-between">
           <div className="space-y-4">
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-bold">
-              <Store className="w-4 h-4 text-emerald-650 text-emerald-600 shrink-0" />
-              <span>{produto.nomeLoja}</span>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 font-bold">
+                <Store className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{produto.nomeLoja}</span>
+              </div>
+              {mediaAvaliacao ? (
+                <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded-lg text-amber-750 text-amber-700 font-mono text-[10px] font-black">
+                  <span>★ {mediaAvaliacao}</span>
+                  <span className="text-gray-400 font-normal">({avaliacoesLoja.length})</span>
+                </div>
+              ) : (
+                <span className="text-[10px] font-bold text-gray-405 text-gray-400 font-mono uppercase bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-lg">Novo parceiro</span>
+              )}
             </div>
 
             <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">
@@ -281,6 +299,66 @@ export const ProdutoDetalheValida: React.FC = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Consumer Reviews Board */}
+      <div className="glass rounded-3xl border-white/50 p-6 md:p-8 space-y-6">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+          <div>
+            <h2 className="text-lg font-black text-gray-900 leading-tight">Avaliações do Estabelecimento</h2>
+            <p className="text-xs text-gray-500 font-medium">Veja o que outros consumidores relataram sobre suas experiências com {produto.nomeLoja}</p>
+          </div>
+          {mediaAvaliacao && (
+            <div className="text-right">
+              <div className="text-2xl font-black text-amber-500 leading-none">★ {mediaAvaliacao}</div>
+              <span className="text-[10px] font-bold text-gray-400 font-mono uppercase">{avaliacoesLoja.length} feedbacks</span>
+            </div>
+          )}
+        </div>
+
+        {avaliacoesLoja.length > 0 ? (
+          <div className="divide-y divide-gray-100 space-y-4">
+            {avaliacoesLoja.map((av, index) => (
+              <div key={av.id || index} className={`pt-4 ${index === 0 ? 'pt-0' : ''} space-y-2`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    {/* Tiny avatar representation */}
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center font-bold text-xs uppercase font-mono">
+                      {av.usuarioEmail.substring(0, 2)}
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-gray-800 block leading-tight">{av.usuarioEmail}</span>
+                      <span className="text-[9px] font-semibold text-gray-400 font-mono">{new Date(av.criadoEm).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  </div>
+                  {/* Stars display */}
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-3 h-3 ${
+                          star <= av.estrelas ? 'fill-amber-400 text-amber-400' : 'text-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {av.comentario && (
+                  <p className="text-xs text-gray-600 font-medium leading-relaxed bg-gray-55/60 bg-slate-50/50 p-3 rounded-xl border border-gray-100">
+                    "{av.comentario}"
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-8 text-center text-gray-400 space-y-2">
+            <p className="text-xs font-semibold font-mono uppercase tracking-wider">Ainda Sem Avaliações</p>
+            <p className="text-[11px] text-gray-400 max-w-sm mx-auto leading-relaxed">
+              Este mercado ainda não recebeu avaliações de retirada. Reserve um lote perecível, conclua e seja o primeiro a deixar um feedback honesto de resgate!
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
