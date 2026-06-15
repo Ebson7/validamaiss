@@ -3,21 +3,34 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { HomeValida } from './components/screens/Home';
-import { ProdutosValida } from './components/screens/Produtos';
-import { ProdutoDetalheValida } from './components/screens/ProdutoDetalhe';
-import { LoginValida } from './components/screens/Login';
-import { CadastroValida } from './components/screens/Cadastro';
-import { MinhasReservasValida } from './components/screens/MinhasReservas';
-import { AdminDashboardValida } from './components/screens/AdminDashboard';
-import { AdminProdutosValida } from './components/screens/AdminProdutos';
-import { AdminReservasValida } from './components/screens/AdminReservas';
-import { AdminCategoriasValida } from './components/screens/AdminCategorias';
-import { AlertCircle, CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
+
+// Route-level code splitting: only the Home screen ships in the initial bundle.
+// Every other screen (especially the admin area a regular consumer never opens)
+// is loaded on demand, keeping the first paint light and fast.
+const ProdutosValida = lazy(() => import('./components/screens/Produtos').then(m => ({ default: m.ProdutosValida })));
+const ProdutoDetalheValida = lazy(() => import('./components/screens/ProdutoDetalhe').then(m => ({ default: m.ProdutoDetalheValida })));
+const LoginValida = lazy(() => import('./components/screens/Login').then(m => ({ default: m.LoginValida })));
+const CadastroValida = lazy(() => import('./components/screens/Cadastro').then(m => ({ default: m.CadastroValida })));
+const MinhasReservasValida = lazy(() => import('./components/screens/MinhasReservas').then(m => ({ default: m.MinhasReservasValida })));
+const AdminDashboardValida = lazy(() => import('./components/screens/AdminDashboard').then(m => ({ default: m.AdminDashboardValida })));
+const AdminProdutosValida = lazy(() => import('./components/screens/AdminProdutos').then(m => ({ default: m.AdminProdutosValida })));
+const AdminReservasValida = lazy(() => import('./components/screens/AdminReservas').then(m => ({ default: m.AdminReservasValida })));
+const AdminCategoriasValida = lazy(() => import('./components/screens/AdminCategorias').then(m => ({ default: m.AdminCategoriasValida })));
+
+// Lightweight fallback shown while a lazily-loaded screen chunk is fetched.
+function ScreenFallback() {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center">
+      <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+    </div>
+  );
+}
 
 function AppContent() {
   const { currentScreen, loading, alert, setAlert } = useApp();
@@ -128,7 +141,9 @@ function AppContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
           >
-            {renderActiveScreen()}
+            <Suspense fallback={<ScreenFallback />}>
+              {renderActiveScreen()}
+            </Suspense>
           </motion.div>
         </main>
       </div>
