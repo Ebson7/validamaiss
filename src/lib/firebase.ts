@@ -16,7 +16,7 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 // Initialize Firebase Auth
-export const auth = getAuth();
+export const auth = getAuth(app);
 
 // Initialize Messaging (FCM) safely with fallback support for iframe and non-supporting environments
 let messagingInstance: Messaging | null = null;
@@ -45,41 +45,25 @@ export interface FirestoreErrorInfo {
   error: string;
   operationType: OperationType;
   path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  };
+  isSignedIn: boolean;
 }
 
 /**
- * Custom error handler to catch and report detailed Firestore-level permission or layout issues.
+ * Custom error handler to catch and report Firestore-level permission or layout issues.
+ *
+ * SECURITY: This handler intentionally does NOT include personally identifiable
+ * information (email, uid, provider data) in the message it throws/logs, since that
+ * message can surface in the UI or in logs. Only non-sensitive diagnostics are kept.
  */
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
     operationType,
-    path
+    path,
+    isSignedIn: auth.currentUser != null
   };
-  console.error('Firestore Error Detailed Info:', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.error('Firestore Error:', errInfo);
+  throw new Error(`Falha na operação "${operationType}"${path ? ` em ${path}` : ''}. Verifique sua conexão e permissões.`);
 }
 
 // Perform mandatory server validation check on boot

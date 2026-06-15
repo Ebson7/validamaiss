@@ -16,7 +16,7 @@ import {
 import { getToken } from 'firebase/messaging';
 import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, messaging } from '../lib/firebase';
-import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
+import { createOrUpdateUserDocument, getUserProfile } from '../lib/auth';
 import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem } from '../types';
 import { 
   getProducts, 
@@ -475,33 +475,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, [user, notificacoesPreferencias, notificacoes]);
 
-  // Seed default demo accounts to local storage and Firestore on first load
+  // Seed default demo accounts to local storage only (first load).
+  // SECURITY: Demo credentials are NEVER written to the shared Firestore database;
+  // they live exclusively in this browser's localStorage for offline testing.
   useEffect(() => {
     const existing = localStorage.getItem('validamais_usuarios');
     if (!existing) {
       localStorage.setItem('validamais_usuarios', JSON.stringify(DEFAULT_USERS));
     }
-
-    const seedMockUsersInFirestore = async () => {
-      // Performance guard: Check if already seeded once on this client
-      const alreadySeeded = localStorage.getItem('validamais_mock_seeded');
-      if (alreadySeeded === 'true') return;
-
-      try {
-        for (const u of DEFAULT_USERS) {
-          const simulatedUid = 'sim_' + u.email.replace(/[^a-zA-Z0-9]/g, '_');
-          const existsProfile = await getUserProfile(simulatedUid);
-          if (!existsProfile) {
-            await createOrUpdateUserDocument(simulatedUid, u.email, u.nome, u.role, '123456');
-          }
-        }
-        localStorage.setItem('validamais_mock_seeded', 'true');
-      } catch (err) {
-        console.warn("Firestore user seeding skipped or failed:", err);
-      }
-    };
-
-    seedMockUsersInFirestore();
   }, []);
 
   // Custom alert timer
@@ -563,12 +544,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.warn("Could not load user profile from Firestore, keeping local session if any.", error);
         }
       } else {
-        // If google firebase logs out, we only log out locally if we were not in a robust offline-session (supports mock_ and sim_ tokens)
+        // If Firebase logs out, we only clear the session if it was NOT an offline/demo
+        // session (mock_, sim_ and local_ prefixes are browser-only test accounts).
         const localSession = localStorage.getItem('validamais_currentUser');
         if (localSession) {
           try {
             const parsed = JSON.parse(localSession);
-            const isMockOrSimulated = parsed.uid && (parsed.uid.startsWith('mock_') || parsed.uid.startsWith('sim_'));
+            const isMockOrSimulated = parsed.uid && (parsed.uid.startsWith('mock_') || parsed.uid.startsWith('sim_') || parsed.uid.startsWith('local_'));
             if (!isMockOrSimulated) {
               setUser(null);
             }
@@ -599,68 +581,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const emailLower = email.trim().toLowerCase();
 
     try {
-      // 1. Try real Firebase Auth
+      // 1. Primary path: real Firebase Authentication (credentials verified server-side).
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const profile = await getUserProfile(cred.user.uid);
       if (profile) {
         setUser(profile);
         localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
         showAlert(`Bem-vindo de volta, ${profile.nome}!`, 'success');
-        if (profile.role === 'admin') {
-          navigateTo('admin-dashboard');
-        } else {
-          navigateTo('home');
-        }
+        navigateTo(profile.role === 'admin' ? 'admin-dashboard' : 'home');
         return;
       }
     } catch (err: any) {
-      console.warn("Firebase Auth login failed. Trying simulated persistent login on Firestore:", err);
+      console.warn("Login via Firebase Auth indisponível. Tentando sessão de teste local deste navegador:", err);
     }
 
-    // 2. Try simulated credentials from Firestore (persistent across different browsers)
-    try {
-      const dbProfile = await loginSimulatedUser(emailLower, password);
-      setUser(dbProfile);
-      localStorage.setItem('validamais_currentUser', JSON.stringify(dbProfile));
-      showAlert(`Bem-vindo de volta, ${dbProfile.nome}! (Login de Teste)`, 'success');
-      if (dbProfile.role === 'admin') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
-      return;
-    } catch (err: any) {
-      if (err.message && err.message.includes('incorretos')) {
-        showAlert('E-mail ou senha incorretos.', 'error');
-        setLoading(false);
-        throw err;
-      }
-    }
-
-    // 3. Try fallback to simulated user in local storage (perfect for offline/unconfigured environments)
+    // 2. Offline/demo fallback: validate against accounts stored locally in THIS browser only.
+    //    No credentials are read from or compared against the shared database.
     try {
       const localUsersStr = localStorage.getItem('validamais_usuarios');
       const localUsers: Usuario[] = localUsersStr ? JSON.parse(localUsersStr) : DEFAULT_USERS;
       const matched = localUsers.find(u => u.email.toLowerCase() === emailLower);
-      
+
       if (matched) {
-        const matchedAny = matched as any;
-        const expectedPass = matchedAny.senha || '123456';
+        const expectedPass = (matched as any).senha || '123456';
         if (expectedPass === password) {
           setUser(matched);
           localStorage.setItem('validamais_currentUser', JSON.stringify(matched));
           showAlert(`Bem-vindo de volta, ${matched.nome}! (Sessão Local)`, 'success');
-          if (matched.role === 'admin') {
-            navigateTo('admin-dashboard');
-          } else {
-            navigateTo('home');
-          }
+          navigateTo(matched.role === 'admin' ? 'admin-dashboard' : 'home');
           return;
-        } else {
-          showAlert('E-mail ou senha incorretos.', 'error');
-          setLoading(false);
-          throw new Error('E-mail ou senha incorretos.');
         }
+        showAlert('E-mail ou senha incorretos.', 'error');
+        setLoading(false);
+        throw new Error('E-mail ou senha incorretos.');
       }
     } catch (err: any) {
       if (err.message && err.message.includes('incorretos')) {
@@ -668,7 +621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // 4. Deny access for non-existent users - explicit registration required
+    // 3. Deny access for non-existent users - explicit registration required
     showAlert('Usuário não cadastrado. Por favor, cadastre-se para acessar o sistema.', 'error');
     setLoading(false);
     throw new Error('Usuário não cadastrado.');
@@ -724,62 +677,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const emailLower = email.trim().toLowerCase();
 
     try {
-      // 1. Try real Firebase Auth
+      // 1. Primary path: real Firebase Authentication (password stored hashed server-side).
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name, role);
+      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name.trim(), role);
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
       showAlert('Sua conta foi criada no Firebase e conectada com sucesso!', 'success');
-      if (role === 'admin') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
+      navigateTo(role === 'admin' ? 'admin-dashboard' : 'home');
       return;
     } catch (err: any) {
-      console.warn("Firebase Auth register failed. Creating simulated persistent user on Firestore:", err);
-    }
-
-    // 2. Simulated registration in Firestore (allows cross-browser testing for anyone)
-    const simulatedUid = 'sim_' + emailLower.replace(/[^a-zA-Z0-9]/g, '_');
-    try {
-      const existingProfile = await getUserProfile(simulatedUid);
-      if (existingProfile) {
+      if (err?.code === 'auth/email-already-in-use') {
         showAlert('Este e-mail já está sendo utilizado.', 'error');
         setLoading(false);
         throw new Error('E-mail já está em uso.');
       }
+      console.warn("Firebase Auth indisponível. Criando conta de teste apenas neste navegador (offline):", err);
+    }
 
-      const userProfile = await createOrUpdateUserDocument(simulatedUid, emailLower, name.trim(), role, password);
-      
-      // Update local storage too
-      const localUsersStr = localStorage.getItem('validamais_usuarios');
-      const localUsers: Usuario[] = localUsersStr ? JSON.parse(localUsersStr) : [...DEFAULT_USERS];
-      if (!localUsers.some(u => u.uid === userProfile.uid)) {
-        localUsers.push({
-          ...userProfile,
-          senha: password
-        } as any);
-        localStorage.setItem('validamais_usuarios', JSON.stringify(localUsers));
-      }
-
-      setUser(userProfile);
-      localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
-      
-      showAlert(`Sua conta de teste '${userProfile.nome}' foi criada e cadastrada com sucesso!`, 'success');
-      if (role === 'admin') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
-    } catch (err: any) {
-      if (err.message && err.message.includes('em uso')) {
-        throw err;
-      }
-
-      console.warn("Firestore registration failed, falling back to local storage-only registration:", err);
-      
-      // Local storage fallback
+    // 2. Offline/demo fallback: store the account ONLY in this browser's localStorage.
+    //    SECURITY: passwords are never written to the shared Firestore database.
+    try {
       const localUsersStr = localStorage.getItem('validamais_usuarios');
       const localUsers: Usuario[] = localUsersStr ? JSON.parse(localUsersStr) : [...DEFAULT_USERS];
       const emailExists = localUsers.some(u => u.email.toLowerCase() === emailLower);
@@ -790,28 +707,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const userProfile: Usuario = {
-        uid: simulatedUid,
+        uid: 'local_' + emailLower.replace(/[^a-zA-Z0-9]/g, '_'),
         email: emailLower,
         nome: name.trim(),
         role: role,
         criadoEm: new Date().toISOString()
       };
 
-      localUsers.push({
-        ...userProfile,
-        senha: password
-      } as any);
+      localUsers.push({ ...userProfile, senha: password } as any);
       localStorage.setItem('validamais_usuarios', JSON.stringify(localUsers));
 
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
 
-      showAlert(`Sua conta de teste '${userProfile.nome}' foi criada localmente com sucesso!`, 'success');
-      if (role === 'admin') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
+      showAlert(`Sua conta de teste '${userProfile.nome}' foi criada localmente neste navegador!`, 'success');
+      navigateTo(role === 'admin' ? 'admin-dashboard' : 'home');
     } finally {
       setLoading(false);
     }
