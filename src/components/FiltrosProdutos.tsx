@@ -62,23 +62,7 @@ export const FiltrosProdutos: React.FC<FiltrosProdutosProps> = ({
   return (
     <div id="filter_component" className="glass rounded-3xl border-white/50 p-6 shadow-sm mb-8">
       {/* Search Input Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Search Input */}
-        <div className="relative">
-          <label className="block text-xs font-bold text-gray-400 font-mono uppercase mb-1.5">Buscar Produto</label>
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
-            <input
-              id="filter_input_search"
-              type="text"
-              placeholder="Ex: Leite Integral, Iogurte..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-sm ps-10 pe-4 py-2 border border-gray-200/60 bg-white/50 focus:bg-white rounded-xl focus:border-emerald-500 focus:outline-none transition-all font-semibold"
-            />
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* CEP Search */}
         <div>
           <label className="block text-xs font-bold text-gray-400 font-mono uppercase mb-1.5 flex justify-between items-center">

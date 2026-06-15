@@ -8,7 +8,7 @@ import { useApp } from '../../context/AppContext';
 import { Produto } from '../../types';
 import { FiltrosProdutos } from '../FiltrosProdutos';
 import { ProdutoCard } from '../ProdutoCard';
-import { AlertCircle, SlidersHorizontal, Loader2, Heart } from 'lucide-react';
+import { AlertCircle, SlidersHorizontal, Loader2, Heart, Search } from 'lucide-react';
 
 export const ProdutosValida: React.FC = () => {
   const { produtos, categorias, produtosLoading: loading, user, isFavoritado } = useApp();
@@ -104,6 +104,48 @@ export const ProdutosValida: React.FC = () => {
             {showOnlyFavorites ? 'Mostrar Todos os Lotes' : 'Ver Meus Favoritos'}
           </button>
         )}
+      </div>
+
+      {/* Prominent Discovery Search Bar */}
+      <div className="bg-emerald-50/45 border border-emerald-100 rounded-3xl p-5 md:p-6 shadow-3xs flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="w-full md:max-w-xl relative">
+          <label htmlFor="catalog_discovery_search" className="sr-only">Buscar por lote ou seção</label>
+          <Search className="absolute left-4 top-3.5 w-5 h-5 text-emerald-600" />
+          <input
+            id="catalog_discovery_search"
+            type="text"
+            placeholder="O que você procura hoje? (Ex: Leite, Iogurte, Bolo, Carnes, Padaria...)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full text-sm font-semibold ps-12 pr-12 py-3 border border-emerald-200 bg-white focus:bg-white rounded-2xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 focus:outline-none transition-all placeholder:text-gray-400 text-gray-800"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-4 top-3.5 text-[10px] font-mono font-bold text-gray-400 hover:text-emerald-600 uppercase tracking-widest cursor-pointer transition-colors"
+              title="Limpar busca"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap text-left w-full md:w-auto">
+          <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider block shrink-0">Populares:</span>
+          {['Leite', 'Iogurte', 'Bolo', 'Carnes', 'Padaria'].map((sug) => (
+            <button
+              key={sug}
+              type="button"
+              onClick={() => setSearchQuery(sug)}
+              className={`px-3.5 py-1.5 rounded-xl border font-bold text-xs transition-all cursor-pointer ${
+                searchQuery.toLowerCase() === sug.toLowerCase()
+                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-3xs'
+                  : 'bg-white hover:bg-emerald-50/60 border-gray-200/60 hover:border-emerald-200 text-gray-600 hover:text-emerald-700'
+              }`}
+            >
+              {sug}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Interactive Filters Grid Utility */}

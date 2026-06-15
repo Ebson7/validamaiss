@@ -183,6 +183,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return !saved; // Only show spinner if cache is empty
   });
 
+  // Fast-boot safety fallback: prevents UI lockups by ensuring no loader gets stuck on startup
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setProdutosLoading(false);
+      setReservasLoading(false);
+      setFavoritosLoading(false);
+    }, 600); // 600ms target to guarantee speedy interactive UI
+    return () => clearTimeout(timer);
+  }, []);
+
   // Real-time synchronization for 'produtos'
   useEffect(() => {
     const colRef = collection(db, 'produtos');
