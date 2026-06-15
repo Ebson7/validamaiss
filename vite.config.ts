@@ -11,6 +11,23 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      // Split heavy third-party libraries into separate, cacheable chunks so the
+      // initial page load downloads them in parallel and reuses them across deploys.
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('@firebase') || id.includes('/firebase/')) return 'firebase';
+              if (id.includes('motion') || id.includes('framer')) return 'motion';
+              if (id.includes('lucide-react')) return 'icons';
+              if (id.includes('react') || id.includes('scheduler')) return 'react-vendor';
+              return 'vendor';
+            }
+          },
+        },
+      },
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
