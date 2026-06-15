@@ -6,14 +6,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Produto } from '../types';
-import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check } from 'lucide-react';
+import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check, Heart } from 'lucide-react';
 
 interface ProdutoCardProps {
   produto: Produto;
 }
 
 export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
-  const { navigateTo, user, avaliacoes, showAlert } = useApp();
+  const { navigateTo, user, avaliacoes, showAlert, isFavoritado, toggleFavorito } = useApp();
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -222,7 +222,28 @@ ${shareUrl}`;
             <h3 className="font-extrabold text-gray-900 group-hover:text-emerald-700 transition-colors line-clamp-1 text-base leading-tight flex-1">
               {produto.nomeProduto}
             </h3>
-            <div className="relative shrink-0">
+            <div className="relative shrink-0 flex items-center gap-1">
+              {/* Botão de Favoritos */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (produto.id) {
+                    toggleFavorito(produto.id);
+                  }
+                }}
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                  produto.id && isFavoritado(produto.id)
+                    ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-xs hover:bg-rose-100 hover:border-rose-300'
+                    : 'bg-white/50 border-gray-200/60 text-gray-400 hover:text-rose-605 hover:bg-rose-50 hover:border-rose-150'
+                }`}
+                title={produto.id && isFavoritado(produto.id) ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}
+              >
+                <Heart 
+                  className={`w-3.5 h-3.5 ${produto.id && isFavoritado(produto.id) ? 'fill-current' : ''}`} 
+                />
+              </button>
+
               <button
                 type="button"
                 onClick={(e) => {

@@ -5,10 +5,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2 } from 'lucide-react';
+import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
-  const { selectedProductId, navigateTo, user, showAlert, produtos, produtosLoading: loading, createReservation, avaliacoes } = useApp();
+  const { selectedProductId, navigateTo, user, showAlert, produtos, produtosLoading: loading, createReservation, avaliacoes, isFavoritado, toggleFavorito } = useApp();
   const [quantidade, setQuantidade] = useState(1);
   const [reserving, setReserving] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -339,6 +339,18 @@ ${shareUrl}`
                       <span>Copiar Link</span>
                     </>
                   )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleFavorito(produto.id!)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs border ${
+                    isFavoritado(produto.id!)
+                      ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-rose-50 hover:border-rose-150 hover:text-rose-605'
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${isFavoritado(produto.id!) ? 'fill-current' : ''}`} />
+                  <span>{isFavoritado(produto.id!) ? 'Favoritado' : 'Favoritar Lote'}</span>
                 </button>
               </div>
             </div>

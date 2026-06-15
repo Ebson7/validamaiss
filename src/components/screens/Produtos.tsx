@@ -8,10 +8,10 @@ import { useApp } from '../../context/AppContext';
 import { Produto } from '../../types';
 import { FiltrosProdutos } from '../FiltrosProdutos';
 import { ProdutoCard } from '../ProdutoCard';
-import { AlertCircle, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { AlertCircle, SlidersHorizontal, Loader2, Heart } from 'lucide-react';
 
 export const ProdutosValida: React.FC = () => {
-  const { produtos, categorias, produtosLoading: loading } = useApp();
+  const { produtos, categorias, produtosLoading: loading, user, isFavoritado } = useApp();
 
   // States of the filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,6 +20,7 @@ export const ProdutosValida: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [selectedStore, setSelectedStore] = useState('');
   const [sortBy, setSortBy] = useState('URGENTE_PRIMEIRO');
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 
   // Derive unique categories and stores for filter dropdowns
   const availableCategories = Array.from(new Set(produtos.map(p => p.categoria))).filter(Boolean);
@@ -54,6 +55,11 @@ export const ProdutosValida: React.FC = () => {
       if (!addressMatch && !storeNameMatch) return false;
     }
 
+    // 5. Favorites filter
+    if (showOnlyFavorites) {
+      if (!product.id || !isFavoritado(product.id)) return false;
+    }
+
     return true;
   });
 
@@ -79,9 +85,25 @@ export const ProdutosValida: React.FC = () => {
   return (
     <div id="produtos_catalog_screen" className="space-y-6">
       {/* Page Title */}
-      <div>
-        <h1 className="text-3xl font-black text-gray-900 leading-tight">Lotes Promocionais Próximos da Validade</h1>
-        <p className="text-xs text-gray-500 font-semibold mt-1">Navegue, selecione as quantidades que precisa, reserve e retire pessoalmente</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 leading-tight">Lotes Promocionais Próximos da Validade</h1>
+          <p className="text-xs text-gray-500 font-semibold mt-1">Navegue, selecione as quantidades que precisa, reserve e retire pessoalmente</p>
+        </div>
+        {user && user.role === 'user' && (
+          <button
+            id="toggle_favorites_only_btn"
+            onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
+            className={`self-start md:self-center px-4.5 py-2.5 rounded-2xl border text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs ${
+              showOnlyFavorites
+                ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                : 'bg-white border-gray-200/65 text-gray-500 hover:bg-rose-50 hover:border-rose-150 hover:text-rose-605'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${showOnlyFavorites ? 'fill-current' : ''}`} />
+            {showOnlyFavorites ? 'Mostrar Todos os Lotes' : 'Ver Meus Favoritos'}
+          </button>
+        )}
       </div>
 
       {/* Interactive Filters Grid Utility */}

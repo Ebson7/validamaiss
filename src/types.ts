@@ -85,4 +85,11 @@ export interface NotificacaoFeedItem {
   criadoEm: any;
 }
 
+export interface Favorito {
+  id?: string;
+  usuarioId: string;
+  produtoId: string;
+  criadoEm: any; // ISO Date string or Firestore Timestamp
+}
+
 
