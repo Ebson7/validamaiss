@@ -17,7 +17,7 @@ import { getToken } from 'firebase/messaging';
 import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, messaging } from '../lib/firebase';
 import { createOrUpdateUserDocument, getUserProfile } from '../lib/auth';
-import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem } from '../types';
+import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem, Favorito } from '../types';
 import { 
   getProducts, 
   getStoreProducts, 
@@ -66,7 +66,7 @@ interface AppContextType {
   showAlert: (message: string, type: Alert['type']) => void;
   navigateTo: (screen: ScreenType, productId?: string | null) => void;
   loginUser: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: (selectedRole?: UserRole) => Promise<void>;
   registerUser: (email: string, password: string, name: string, role: UserRole) => Promise<void>;
   logoutUser: () => Promise<void>;
   saveProduct: (formData: any, productId: string | null) => Promise<Produto>;
@@ -89,6 +89,10 @@ interface AppContextType {
   marcarNotificacaoComoLida: (id: string) => Promise<void>;
   apagarNotificacao: (id: string) => Promise<void>;
   testSendNotificationPreview: (produto: Produto) => Promise<void>;
+  favoritos: Favorito[];
+  favoritosLoading: boolean;
+  isFavoritado: (produtoId: string) => boolean;
+  toggleFavorito: (produtoId: string) => Promise<void>;
 }
 
 const DEFAULT_USERS: Usuario[] = [
@@ -161,6 +165,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [notificacoes, setNotificacoes] = useState<NotificacaoFeedItem[]>([]);
   const [notificacoesPreferencias, setNotificacoesPreferencias] = useState<NotificacaoPreferencias | null>(null);
+  const [favoritos, setFavoritos] = useState<Favorito[]>(() => {
+    const saved = localStorage.getItem('validamais_favoritos');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [favoritosLoading, setFavoritosLoading] = useState(true);
   const [notificationsPermission, setNotificationsPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -173,6 +182,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('validamais_reservas');
     return !saved; // Only show spinner if cache is empty
   });
+
+  // Fast-boot safety fallback: prevents UI lockups by ensuring no loader gets stuck on startup
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setProdutosLoading(false);
+      setReservasLoading(false);
+      setFavoritosLoading(false);
+    }, 600); // 600ms target to guarantee speedy interactive UI
+    return () => clearTimeout(timer);
+  }, []);
 
   // Real-time synchronization for 'produtos'
   useEffect(() => {
@@ -411,6 +431,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, [user]);
 
+  // Real-time synchronization for 'favoritos' (user-specific list)
+  useEffect(() => {
+    if (!user) {
+      setFavoritos([]);
+      setFavoritosLoading(false);
+      return;
+    }
+    setFavoritosLoading(true);
+    const colRef = collection(db, 'favoritos');
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        const results: Favorito[] = [];
+        snapshot.forEach((docSnap) => {
+          const fav = { id: docSnap.id, ...docSnap.data() } as Favorito;
+          if (fav.usuarioId === user.uid) {
+            results.push(fav);
+          }
+        });
+        setFavoritos(results);
+        localStorage.setItem('validamais_favoritos', JSON.stringify(results));
+        setFavoritosLoading(false);
+      },
+      (error) => {
+        console.warn("Real-time snapshot favorites subscription failed: ", error);
+        setFavoritosLoading(false);
+      }
+    );
+    return unsubscribe;
+  }, [user]);
+
   // Monitor newly added discounted products in real time and automatically deliver a notification matching preferences
   useEffect(() => {
     const colRef = collection(db, 'produtos');
@@ -628,7 +679,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Google Login handler
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (selectedRole: UserRole = 'user') => {
     // Avoid blocking background with a full-screen loading spinner while the popup is open
     try {
       const provider = new GoogleAuthProvider();
@@ -642,8 +693,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Update/Create user document in Firestore/Mock DB
       let profile = await getUserProfile(cred.user.uid);
       if (!profile) {
-        // Create user with default role: user
-        profile = await createOrUpdateUserDocument(cred.user.uid, email, nome, 'user');
+        // Create user with default role: selectedRole
+        profile = await createOrUpdateUserDocument(cred.user.uid, email, nome, selectedRole);
       }
       
       setUser(profile);
@@ -1094,6 +1145,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const isFavoritado = (produtoId: string): boolean => {
+    return favoritos.some((f) => f.produtoId === produtoId);
+  };
+
+  const toggleFavorito = async (produtoId: string): Promise<void> => {
+    if (!user) {
+      showAlert('Faça login para salvar produtos nos seus favoritos.', 'warning');
+      navigateTo('login');
+      return;
+    }
+
+    const existingFav = favoritos.find((f) => f.produtoId === produtoId);
+
+    try {
+      if (existingFav && existingFav.id) {
+        // Remove from favorites
+        const docRef = doc(db, 'favoritos', existingFav.id);
+        await deleteDoc(docRef);
+        showAlert('Produto removido dos favoritos.', 'success');
+      } else {
+        // Add to favorites
+        const payload: Omit<Favorito, 'id'> = {
+          usuarioId: user.uid,
+          produtoId,
+          criadoEm: new Date().toISOString(),
+        };
+        await addDoc(collection(db, 'favoritos'), payload);
+        showAlert('Produto adicionado aos favoritos!', 'success');
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'favoritos');
+    }
+  };
+
   const testSendNotificationPreview = async (produto: Produto): Promise<void> => {
     if (!user) {
       showAlert('É necessário estar logado para simular notificações.', 'warning');
@@ -1159,7 +1244,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateNotificacaoPreferencias,
         marcarNotificacaoComoLida,
         apagarNotificacao,
-        testSendNotificationPreview
+        testSendNotificationPreview,
+        favoritos,
+        favoritosLoading,
+        isFavoritado,
+        toggleFavorito
       }}
     >
       {children}

@@ -112,6 +112,14 @@ service cloud.firestore {
         data.criadoEm != null;
     }
 
+    function isValidFavorito(data) {
+      return data.keys().hasAll(['usuarioId', 'produtoId', 'criadoEm']) &&
+        data.keys().size() == 3 &&
+        data.usuarioId is string && data.usuarioId.size() <= 128 &&
+        data.produtoId is string && data.produtoId.size() <= 128 &&
+        data.criadoEm != null;
+    }
+
     // Collections Matches
 
     // USUARIOS COLLECTION
@@ -176,6 +184,13 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidNotificacao(request.resource.data) &&
         request.resource.data.usuarioId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.usuarioId == request.auth.uid;
+    }
+
+    // FAVORITOS
+    match /favoritos/{favoritoId} {
+      allow read, get, list: if isSignedIn() && resource.data.usuarioId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.usuarioId == request.auth.uid && isValidFavorito(request.resource.data);
+      allow delete: if isSignedIn() && resource.data.usuarioId == request.auth.uid;
     }
   }
 }
