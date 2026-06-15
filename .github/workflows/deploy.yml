@@ -13,7 +13,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - run: npm install -g firebase-tools
-      - run: firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}" --project gen-lang-client-0971671639 --site gen-lang-client-0971671639
+      # Deploys the application AND the Firestore security rules so that the database
+      # is never left in an open/test-mode state in production.
+      - run: firebase deploy --only hosting,firestore:rules --token "${{ secrets.FIREBASE_TOKEN }}" --project gen-lang-client-0971671639

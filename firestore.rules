@@ -13,22 +13,24 @@ service cloud.firestore {
 
     // Entity Validators
 
+    // NOTE: The 'senha' (password) field is explicitly forbidden. Credentials must
+    // never be persisted in Firestore — authentication is handled by Firebase Auth.
     function isValidUsuario(data) {
       return data.keys().hasAll(['uid', 'email', 'nome', 'role', 'criadoEm']) &&
-        data.keys().size() <= 6 &&
+        data.keys().size() == 5 &&
+        !data.keys().hasAny(['senha']) &&
         data.uid is string && data.uid.size() <= 128 &&
         data.email is string && data.email.size() <= 256 &&
         data.nome is string && data.nome.size() <= 256 &&
         data.role is string && (data.role == 'user' || data.role == 'admin') &&
-        data.criadoEm != null &&
-        (!data.keys().hasAny(['senha']) || (data.senha is string && data.senha.size() <= 128));
+        data.criadoEm != null;
     }
 
     function isValidProduto(data) {
       return data.keys().hasAll([
-        'adminId', 'nomeLoja', 'nomeProduto', 'categoria', 
-        'precoOriginal', 'precoPromocional', 'dataValidade', 
-        'quantidadeDisponivel', 'quantidadeReservada', 'status', 
+        'adminId', 'nomeLoja', 'nomeProduto', 'categoria',
+        'precoOriginal', 'precoPromocional', 'dataValidade',
+        'quantidadeDisponivel', 'quantidadeReservada', 'status',
         'endereco', 'criadoEm'
       ]) &&
         data.keys().size() <= 15 &&
@@ -51,8 +53,8 @@ service cloud.firestore {
 
     function isValidReserva(data) {
       return data.keys().hasAll([
-        'usuarioId', 'usuarioEmail', 'produtoId', 'nomeProduto', 
-        'nomeLoja', 'quantidade', 'precoTotal', 'status', 
+        'usuarioId', 'usuarioEmail', 'produtoId', 'nomeProduto',
+        'nomeLoja', 'quantidade', 'precoTotal', 'status',
         'criadoEm', 'atualizadoEm'
       ]) &&
         data.keys().size() == 10 &&
@@ -121,30 +123,50 @@ service cloud.firestore {
     // Collections Matches
 
     // USUARIOS COLLECTION
+    // A user may only read and write their OWN profile document. Listing the whole
+    // collection is forbidden to prevent bulk extraction of user data.
     match /usuarios/{usuarioId} {
-      allow read, get, list: if true;
-      allow create, update: if isValidUsuario(request.resource.data);
-      allow delete: if isSignedIn();
+      allow get: if isOwner(usuarioId);
+      allow list: if false;
+      allow create: if isOwner(usuarioId) && isValidUsuario(request.resource.data);
+      // A user cannot escalate their own role on update.
+      allow update: if isOwner(usuarioId) && isValidUsuario(request.resource.data) &&
+        request.resource.data.role == resource.data.role;
+      allow delete: if isOwner(usuarioId);
     }
 
     // PRODUTOS COLLECTION
+    // Public read (storefront catalog). Writes require authentication.
+    // NOTE: Role-based (admin-only) enforcement should be added via Firebase Auth
+    // custom claims + Cloud Functions in a future iteration.
     match /produtos/{produtoId} {
       allow read, get, list: if true;
-      allow create, update: if isValidProduto(request.resource.data);
-      allow delete: if true;
+      allow create, update: if isSignedIn() && isValidProduto(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    // CATEGORIAS COLLECTION
+    match /categorias/{categoriaId} {
+      allow read, get, list: if true;
+      allow create, update, delete: if isSignedIn();
     }
 
     // RESERVAS COLLECTION
+    // A reservation can only be created in the name of the authenticated user.
     match /reservas/{reservaId} {
-      allow read, get, list: if true;
-      allow create, update: if isValidReserva(request.resource.data);
-      allow delete: if true;
+      allow read, get, list: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.usuarioId == request.auth.uid &&
+        isValidReserva(request.resource.data);
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     // AVALIACOES COLLECTION
     match /avaliacoes/{avaliacaoId} {
       allow read, get, list: if true;
-      allow create: if isSignedIn() && isValidAvaliacao(request.resource.data);
+      allow create: if isSignedIn() && isValidAvaliacao(request.resource.data) &&
+        request.resource.data.usuarioId == request.auth.uid;
       allow update, delete: if isSignedIn() && isOwner(resource.data.usuarioId);
     }
 
@@ -156,9 +178,11 @@ service cloud.firestore {
     }
 
     // NOTIFICACOES FEED
+    // A notification can only be created targeting the authenticated user.
     match /notificacoes/{notificacaoId} {
       allow read, get, list: if isSignedIn() && resource.data.usuarioId == request.auth.uid;
-      allow create: if isSignedIn() && isValidNotificacao(request.resource.data);
+      allow create: if isSignedIn() && isValidNotificacao(request.resource.data) &&
+        request.resource.data.usuarioId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.usuarioId == request.auth.uid;
     }
 
