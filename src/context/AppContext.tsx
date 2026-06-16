@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -257,6 +257,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  // Guards against concurrent/repeated seeding. Set synchronously *before* the
+  // async writes start so a re-fired snapshot (or a StrictMode double-mount)
+  // can never kick off a second seed pass while the first is still in flight.
+  const seedingCategoriasRef = useRef(false);
+
   // Real-time synchronization for 'categorias'
   useEffect(() => {
     const colRef = collection(db, 'categorias');
@@ -267,32 +272,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         snapshot.forEach((docSnap) => {
           results.push({ id: docSnap.id, ...docSnap.data() } as Categoria);
         });
+
         if (results.length > 0) {
-          setCategorias(results);
-          localStorage.setItem('validamais_categorias', JSON.stringify(results));
-        } else {
-          // If Firestore collection 'categorias' is empty, seed it on demand asynchronously
-          const seedCategoriesAsync = async () => {
-            const hasSeeded = localStorage.getItem('validamais_categorias_seeded');
-            if (!hasSeeded) {
-              console.log("Firestore 'categorias' collection is empty. Auto-seeding DEFAULT_CATEGORIES...");
-              try {
-                const batchSeeds = DEFAULT_CATEGORIES.map(async (cat) => {
-                  const docRef = await addDoc(collection(db, 'categorias'), {
-                    nome: cat.nome,
-                    criadoEm: new Date().toISOString()
-                  });
-                  return { id: docRef.id, nome: cat.nome, criadoEm: new Date().toISOString() };
-                });
-                await Promise.all(batchSeeds);
-                localStorage.setItem('validamais_categorias_seeded', 'true');
-              } catch (e) {
-                console.warn("Failed automatic categories seeding in background:", e);
-              }
-            }
-          };
-          seedCategoriesAsync();
+          // De-duplicate by name (case-insensitive). Any duplicate documents
+          // accumulated by the old auto-id seeding are collapsed here so the
+          // list stops "looping"/repeating in the UI.
+          const seen = new Set<string>();
+          const unique = results.filter((cat) => {
+            const key = (cat.nome || '').trim().toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setCategorias(unique);
+          localStorage.setItem('validamais_categorias', JSON.stringify(unique));
+          return;
         }
+
+        // Collection is empty: seed it once, idempotently. Using deterministic
+        // document IDs (setDoc, not addDoc) means a re-run can never create
+        // duplicates — it just overwrites the same docs.
+        if (seedingCategoriasRef.current) return;
+        seedingCategoriasRef.current = true;
+
+        (async () => {
+          console.log("Firestore 'categorias' collection is empty. Auto-seeding DEFAULT_CATEGORIES...");
+          try {
+            await Promise.all(
+              DEFAULT_CATEGORIES.map((cat) =>
+                setDoc(doc(db, 'categorias', cat.id), {
+                  nome: cat.nome,
+                  criadoEm: new Date().toISOString(),
+                })
+              )
+            );
+            localStorage.setItem('validamais_categorias_seeded', 'true');
+          } catch (e) {
+            console.warn("Failed automatic categories seeding in background:", e);
+            // Allow a retry on a later snapshot if seeding genuinely failed.
+            seedingCategoriasRef.current = false;
+          }
+        })();
       },
       (error) => {
         console.warn("Real-time snapshot categories subscription failed: ", error);
