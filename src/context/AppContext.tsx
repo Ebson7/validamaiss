@@ -261,6 +261,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // async writes start so a re-fired snapshot (or a StrictMode double-mount)
   // can never kick off a second seed pass while the first is still in flight.
   const seedingCategoriasRef = useRef(false);
+  // Guards the duplicate-cleanup pass so concurrent snapshots don't fire
+  // overlapping batches of deletes.
+  const cleaningCategoriasRef = useRef(false);
 
   // Real-time synchronization for 'categorias'
   useEffect(() => {
@@ -276,16 +279,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (results.length > 0) {
           // De-duplicate by name (case-insensitive). Any duplicate documents
           // accumulated by the old auto-id seeding are collapsed here so the
-          // list stops "looping"/repeating in the UI.
-          const seen = new Set<string>();
-          const unique = results.filter((cat) => {
+          // list stops "looping"/repeating in the UI. We keep the canonical
+          // doc per name: a deterministic `cat_*` id when present, otherwise
+          // the first one seen.
+          const canonicalIds = new Set(DEFAULT_CATEGORIES.map((c) => c.id));
+          const keepByName = new Map<string, Categoria>();
+          const redundantIds: string[] = [];
+
+          for (const cat of results) {
             const key = (cat.nome || '').trim().toLowerCase();
-            if (!key || seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
+            if (!key) {
+              redundantIds.push(cat.id);
+              continue;
+            }
+            const current = keepByName.get(key);
+            if (!current) {
+              keepByName.set(key, cat);
+            } else if (!canonicalIds.has(current.id) && canonicalIds.has(cat.id)) {
+              // Prefer the canonical id; demote the previously kept doc.
+              redundantIds.push(current.id);
+              keepByName.set(key, cat);
+            } else {
+              redundantIds.push(cat.id);
+            }
+          }
+
+          const unique = Array.from(keepByName.values());
           setCategorias(unique);
           localStorage.setItem('validamais_categorias', JSON.stringify(unique));
+
+          // Permanently remove the redundant documents from Firestore so the
+          // duplicates can never resurface through any code path. Gated on an
+          // authenticated session (the rules require it) and a ref guard so
+          // concurrent snapshots don't launch overlapping delete batches.
+          if (redundantIds.length > 0 && auth.currentUser && !cleaningCategoriasRef.current) {
+            cleaningCategoriasRef.current = true;
+            (async () => {
+              try {
+                await Promise.all(
+                  redundantIds.map((id) => deleteDoc(doc(db, 'categorias', id)))
+                );
+                console.log(`Removidas ${redundantIds.length} categorias duplicadas do Firestore.`);
+              } catch (e) {
+                console.warn('Falha ao limpar categorias duplicadas:', e);
+              } finally {
+                cleaningCategoriasRef.current = false;
+              }
+            })();
+          }
           return;
         }
 
