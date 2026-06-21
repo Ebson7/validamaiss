@@ -257,12 +257,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // Guards against concurrent/repeated seeding. Set synchronously *before* the
-  // async writes start so a re-fired snapshot (or a StrictMode double-mount)
-  // can never kick off a second seed pass while the first is still in flight.
-  const seedingCategoriasRef = useRef(false);
-
-  // Real-time synchronization for 'categorias'
+  // Real-time synchronization for 'categorias' — DISPLAY ONLY. This read path
+  // never mutates Firestore, so the rendered list can never flicker as a side
+  // effect of the listener. Seeding lives in a separate, auth-gated effect below.
   useEffect(() => {
     const colRef = collection(db, 'categorias');
     const unsubscribe = onSnapshot(
@@ -273,63 +270,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           results.push({ id: docSnap.id, ...docSnap.data() } as Categoria);
         });
 
-        if (results.length > 0) {
-          // De-duplicate by name (case-insensitive) for display. Documents that
-          // the old auto-id seeding may have accumulated are collapsed here so
-          // the chip list never repeats. We intentionally do NOT mutate
-          // Firestore from this read path — deleting docs on every snapshot
-          // re-fires the listener and makes the list flicker (appear/disappear).
-          const seen = new Set<string>();
-          const unique = results
-            .filter((cat) => {
-              const key = (cat.nome || '').trim().toLowerCase();
-              if (!key || seen.has(key)) return false;
-              seen.add(key);
-              return true;
-            })
-            // Stable ordering so the rendered list never reshuffles between snapshots.
-            .sort((a, b) => a.nome.localeCompare(b.nome));
+        // De-duplicate by name (case-insensitive) and order stably, so the list
+        // never repeats or reshuffles between snapshots.
+        const seen = new Set<string>();
+        const unique = results
+          .filter((cat) => {
+            const key = (cat.nome || '').trim().toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .sort((a, b) => a.nome.localeCompare(b.nome));
 
-          // Only push new state when the visible set actually changed; otherwise
-          // an identical snapshot would create a fresh array reference and force
-          // a needless re-render (a source of perceived flicker). The key is
-          // order-independent so an unsorted optimistic update that matches the
-          // same set of names still short-circuits.
-          const keyOf = (list: Categoria[]) =>
-            list.map((c) => (c.nome || '').trim().toLowerCase()).sort().join('|');
-          const nextKey = keyOf(unique);
-          setCategorias((prev) => {
-            if (keyOf(prev) === nextKey) return prev;
-            localStorage.setItem('validamais_categorias', JSON.stringify(unique));
-            return unique;
-          });
-          return;
-        }
-
-        // Collection is empty: seed it once, idempotently. Using deterministic
-        // document IDs (setDoc, not addDoc) means a re-run can never create
-        // duplicates — it just overwrites the same docs.
-        if (seedingCategoriasRef.current) return;
-        seedingCategoriasRef.current = true;
-
-        (async () => {
-          console.log("Firestore 'categorias' collection is empty. Auto-seeding DEFAULT_CATEGORIES...");
-          try {
-            await Promise.all(
-              DEFAULT_CATEGORIES.map((cat) =>
-                setDoc(doc(db, 'categorias', cat.id), {
-                  nome: cat.nome,
-                  criadoEm: new Date().toISOString(),
-                })
-              )
-            );
-            localStorage.setItem('validamais_categorias_seeded', 'true');
-          } catch (e) {
-            console.warn("Failed automatic categories seeding in background:", e);
-            // Allow a retry on a later snapshot if seeding genuinely failed.
-            seedingCategoriasRef.current = false;
-          }
-        })();
+        // Only push new state when the visible set actually changed (order-independent),
+        // avoiding a needless re-render from a fresh array reference.
+        const keyOf = (list: Categoria[]) =>
+          list.map((c) => (c.nome || '').trim().toLowerCase()).sort().join('|');
+        const nextKey = keyOf(unique);
+        setCategorias((prev) => {
+          if (keyOf(prev) === nextKey) return prev;
+          localStorage.setItem('validamais_categorias', JSON.stringify(unique));
+          return unique;
+        });
       },
       (error) => {
         console.warn("Real-time snapshot categories subscription failed: ", error);
@@ -337,6 +299,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     return unsubscribe;
   }, []);
+
+  // Ensure the standard categories always exist in Firestore (idempotent merge).
+  //
+  // The previous "seed only when the collection is empty" logic left the set
+  // permanently incomplete if a seed pass was interrupted (e.g. only 2 of 6
+  // documents were written): since the collection was no longer empty, the
+  // missing ones were never created again. This effect instead checks which of
+  // the standard categories are absent and creates ONLY those, using
+  // deterministic document ids (so it can never create duplicates) and never
+  // deleting anything. Gated on a real Firebase Auth session because the
+  // security rules require authentication for writes; it runs once per session.
+  const ensuredStandardCategoriasRef = useRef(false);
+  useEffect(() => {
+    if (!firebaseUser || ensuredStandardCategoriasRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, 'categorias'));
+        const present = new Set<string>();
+        snap.forEach((d) => {
+          const n = (((d.data() as any).nome) || '').trim().toLowerCase();
+          if (n) present.add(n);
+        });
+        const missing = DEFAULT_CATEGORIES.filter(
+          (c) => !present.has(c.nome.trim().toLowerCase())
+        );
+        if (missing.length > 0) {
+          await Promise.all(
+            missing.map((cat) =>
+              setDoc(doc(db, 'categorias', cat.id), {
+                nome: cat.nome,
+                criadoEm: new Date().toISOString(),
+              })
+            )
+          );
+        }
+        if (!cancelled) ensuredStandardCategoriasRef.current = true;
+      } catch (e) {
+        console.warn('Não foi possível garantir as categorias padrão:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUser]);
 
   // Real-time synchronization for 'avaliacoes'
   useEffect(() => {
@@ -935,7 +942,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const updated = [...categorias, newCat];
       setCategorias(updated);
       localStorage.setItem('validamais_categorias', JSON.stringify(updated));
-      showAlert(`Categoria '${nome.trim()}' criada localmente.`, 'success');
+      // Be honest: the write did NOT reach the server. This is almost always an
+      // authentication issue (the security rules require a signed-in session) or
+      // a connectivity problem, so surface it as a warning instead of "success".
+      const motivo = !firebaseUser
+        ? 'Você não está autenticado no servidor — faça login novamente.'
+        : 'Falha de conexão ou permissão.';
+      showAlert(`Não foi possível salvar a categoria no servidor (${motivo}) Ela ficou apenas neste dispositivo.`, 'warning');
     } finally {
       setLoading(false);
     }
