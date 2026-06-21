@@ -292,11 +292,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           // Only push new state when the visible set actually changed; otherwise
           // an identical snapshot would create a fresh array reference and force
-          // a needless re-render (a source of perceived flicker).
+          // a needless re-render (a source of perceived flicker). The key is
+          // order-independent so an unsorted optimistic update that matches the
+          // same set of names still short-circuits.
+          const keyOf = (list: Categoria[]) =>
+            list.map((c) => (c.nome || '').trim().toLowerCase()).sort().join('|');
+          const nextKey = keyOf(unique);
           setCategorias((prev) => {
-            const prevKey = prev.map((c) => c.nome).join('|');
-            const nextKey = unique.map((c) => c.nome).join('|');
-            if (prevKey === nextKey) return prev;
+            if (keyOf(prev) === nextKey) return prev;
             localStorage.setItem('validamais_categorias', JSON.stringify(unique));
             return unique;
           });
@@ -496,38 +499,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, [user]);
 
-  // Monitor newly added discounted products in real time and automatically deliver a notification matching preferences
+  // Monitor newly added discounted products in real time and automatically deliver a notification matching preferences.
+  //
+  // The listener subscribes ONCE (empty deps) and reads the latest user /
+  // preferences / notifications through a ref. Previously `notificacoes` was a
+  // dependency, but this effect also *writes* to `notificacoes`, so every
+  // auto-notification re-ran the effect, tearing down and recreating the
+  // products subscription and resetting `isInitialBatch` (churn + a window
+  // where the "initial batch" was skipped again).
+  const notifierStateRef = useRef({ user, prefs: notificacoesPreferencias, notificacoes });
+  useEffect(() => {
+    notifierStateRef.current = { user, prefs: notificacoesPreferencias, notificacoes };
+  }, [user, notificacoesPreferencias, notificacoes]);
+
   useEffect(() => {
     const colRef = collection(db, 'produtos');
     let isInitialBatch = true;
-    
+
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       if (isInitialBatch) {
         isInitialBatch = false;
         return; // ignore initial loading items
       }
-      
+
       snapshot.docChanges().forEach(async (change) => {
         if (change.type === 'added') {
           const newProd = { id: change.doc.id, ...change.doc.data() } as Produto;
           const isDiscounted = newProd.precoPromocional < newProd.precoOriginal;
-          
+
           if (isDiscounted && newProd.status === 'disponivel') {
             const prodId = change.doc.id;
-            
+            const { user, prefs, notificacoes } = notifierStateRef.current;
+
             // Deliver notification to logged-in customer matching preferences
             if (user && user.role === 'user') {
-              const prefs = notificacoesPreferencias;
               if (prefs && prefs.notificarNovosDescontos) {
                 // If they have CEP search filters, check if address CEP overlaps, or matches store names
                 const matchesCep = prefs.cepsDesejados.length === 0 || prefs.cepsDesejados.some(cep => {
                   const cleanPref = cep.replace(/\D/g, '').substring(0, 5);
                   const cleanProd = (newProd.endereco || '').replace(/\D/g, '');
-                  return (cleanProd && cleanProd.includes(cleanPref)) || 
+                  return (cleanProd && cleanProd.includes(cleanPref)) ||
                     (newProd.nomeLoja || '').toLowerCase().includes(cep.toLowerCase()) ||
                     (newProd.endereco || '').toLowerCase().includes(cep.toLowerCase());
                 });
-                
+
                 if (matchesCep) {
                   // Avoid duplicating notifications for the same product
                   const exists = notificacoes.some(n => n.produtoId === prodId);
@@ -556,9 +571,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
     });
-    
+
     return unsubscribe;
-  }, [user, notificacoesPreferencias, notificacoes]);
+  }, []);
 
   // Seed default demo accounts to local storage only (first load).
   // SECURITY: Demo credentials are NEVER written to the shared Firestore database;
@@ -905,12 +920,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLoading(true);
     try {
       const colRef = collection(db, 'categorias');
-      const docRef = await addDoc(colRef, {
+      await addDoc(colRef, {
         nome: nome.trim(),
         criadoEm: new Date().toISOString()
       });
-      const newCat: Categoria = { id: docRef.id, nome: nome.trim(), criadoEm: new Date().toISOString() };
-      setCategorias((prev) => [...prev, newCat]);
+      // The real-time snapshot listener is the single source of truth and will
+      // pick up the new document; no optimistic local insert (which would
+      // briefly duplicate and reshuffle the list before the snapshot arrives).
       showAlert(`Categoria '${nome.trim()}' cadastrada com sucesso!`, 'success');
     } catch (err) {
       console.warn("Firestore category addition failed, executing locally:", err);
@@ -928,7 +944,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCategory = async (id: string) => {
     setLoading(true);
     try {
-      await deleteDoc(doc(db, 'categorias', id));
+      // Also remove any hidden duplicate documents that share this name. The
+      // displayed list is de-duplicated by name, so a single id may stand in
+      // for several legacy docs; deleting only that id would let a same-name
+      // duplicate resurface on the next snapshot. Safe to do here because this
+      // runs only on an explicit admin action (not on the passive read path).
+      const target = categorias.find(c => c.id === id);
+      const targetName = (target?.nome || '').trim().toLowerCase();
+
+      let idsToDelete = [id];
+      if (targetName) {
+        const snap = await getDocs(collection(db, 'categorias'));
+        const matches = snap.docs
+          .filter(d => (((d.data() as any).nome) || '').trim().toLowerCase() === targetName)
+          .map(d => d.id);
+        if (matches.length > 0) idsToDelete = matches;
+      }
+
+      await Promise.all(idsToDelete.map(cid => deleteDoc(doc(db, 'categorias', cid))));
       setCategorias((prev) => prev.filter(c => c.id !== id));
       showAlert('Categoria removida com sucesso!', 'success');
     } catch (err) {
