@@ -17,13 +17,14 @@ service cloud.firestore {
     // never be persisted in Firestore — authentication is handled by Firebase Auth.
     function isValidUsuario(data) {
       return data.keys().hasAll(['uid', 'email', 'nome', 'role', 'criadoEm']) &&
-        data.keys().size() == 5 &&
+        data.keys().size() <= 6 &&
         !data.keys().hasAny(['senha']) &&
         data.uid is string && data.uid.size() <= 128 &&
         data.email is string && data.email.size() <= 256 &&
         data.nome is string && data.nome.size() <= 256 &&
         data.role is string && (data.role == 'user' || data.role == 'admin') &&
-        data.criadoEm != null;
+        data.criadoEm != null &&
+        (!data.keys().hasAny(['telefone']) || (data.telefone is string && data.telefone.size() <= 20));
     }
 
     function isValidProduto(data) {

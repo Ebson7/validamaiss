@@ -3,42 +3,43 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
-import { 
-  ShoppingBag, 
-  Mail, 
-  Lock, 
-  User, 
-  UserPlus, 
-  HelpCircle, 
-  CheckCircle, 
-  RefreshCw, 
-  ArrowLeft, 
-  Inbox, 
-  AlertCircle 
+import {
+  ShoppingBag,
+  Mail,
+  Lock,
+  User,
+  Phone,
+  UserPlus,
+  HelpCircle,
+  CheckCircle,
+  RefreshCw,
+  ArrowLeft,
+  AlertCircle,
+  MailCheck
 } from 'lucide-react';
 
 export const CadastroValida: React.FC = () => {
-  const { registerUser, loginWithGoogle, navigateTo, showAlert } = useApp();
+  const { registerUser, loginWithGoogle, navigateTo, showAlert, emailVerificationPending, resendVerificationEmail, confirmEmailVerified } = useApp();
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('user');
   const [loading, setLoading] = useState(false);
-
-  // Email Validation flow states
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState('');
-  const [codeDigits, setCodeDigits] = useState(['', '', '', '', '', '']);
-  const [verificationError, setVerificationError] = useState('');
   const [isResending, setIsResending] = useState(false);
-  const [showSimulator, setShowSimulator] = useState(true);
+  const [isCheckingVerification, setIsCheckingVerification] = useState(false);
 
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Transition to verification view when the context signals email pending
+  const [isVerifying, setIsVerifying] = useState(false);
+  useEffect(() => {
+    if (emailVerificationPending) {
+      setIsVerifying(true);
+    }
+  }, [emailVerificationPending]);
 
-  // Form submission: steps into validation flow
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome || !email || !password) return;
@@ -48,105 +49,31 @@ export const CadastroValida: React.FC = () => {
       return;
     }
 
-    // Generate random 6-digit validation code
-    const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedCode(randomCode);
-    setCodeDigits(['', '', '', '', '', '']);
-    setVerificationError('');
-    setIsVerifying(true);
-    
-    showAlert(`Código de ativação gerado e enviado com sucesso para ${email.trim()}!`, 'success');
-  };
-
-  const handleDigitChange = (val: string, idx: number) => {
-    const cleanVal = val.replace(/[^0-9]/g, '');
-    if (cleanVal === '') {
-      const updated = [...codeDigits];
-      updated[idx] = '';
-      setCodeDigits(updated);
-      return;
-    }
-
-    const updated = [...codeDigits];
-    
-    // If user pastes code
-    if (cleanVal.length > 1) {
-      const pastedCode = cleanVal.slice(0, 6).split('');
-      const newDigits = [...codeDigits];
-      pastedCode.forEach((char, pIdx) => {
-        if (pIdx < 6) newDigits[pIdx] = char;
-      });
-      setCodeDigits(newDigits);
-      const focusIdx = Math.min(pastedCode.length, 5);
-      inputRefs.current[focusIdx]?.focus();
-      return;
-    }
-
-    updated[idx] = cleanVal;
-    setCodeDigits(updated);
-    setVerificationError('');
-
-    // Focus next input automatically
-    if (idx < 5) {
-      setTimeout(() => {
-        inputRefs.current[idx + 1]?.focus();
-      }, 10);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
-    if (e.key === 'Backspace') {
-      if (codeDigits[idx] === '') {
-        if (idx > 0) {
-          const updated = [...codeDigits];
-          updated[idx - 1] = '';
-          setCodeDigits(updated);
-          inputRefs.current[idx - 1]?.focus();
-        }
-      } else {
-        const updated = [...codeDigits];
-        updated[idx] = '';
-        setCodeDigits(updated);
-      }
-      setVerificationError('');
-    }
-  };
-
-  // Resend code simulated handler
-  const handleResendCode = () => {
-    setIsResending(true);
-    setTimeout(() => {
-      const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedCode(newCode);
-      setCodeDigits(['', '', '', '', '', '']);
-      setVerificationError('');
-      setIsResending(false);
-      showAlert('Novo código de verificação reenviado para o seu e-mail!', 'success');
-    }, 800);
-  };
-
-  // Submit code to finish register
-  const handleVerifyAndRegister = async () => {
-    const enteredCode = codeDigits.join('');
-    if (enteredCode.length < 6) {
-      setVerificationError('Por favor, informe todos os 6 dígitos.');
-      return;
-    }
-
-    if (enteredCode !== generatedCode) {
-      setVerificationError('Código inválido ou incorreto. Confira e tente novamente.');
-      showAlert('Código de verificação incorreto.', 'error');
-      return;
-    }
-
     setLoading(true);
-    setVerificationError('');
     try {
-      await registerUser(email.trim(), password, nome.trim(), role);
-    } catch (err: any) {
-      setVerificationError(err.message || 'Ocorreu um erro ao finalizar o seu cadastro.');
+      await registerUser(email.trim(), password, nome.trim(), role, telefone.trim() || undefined);
+    } catch {
+      // Errors handled inside context
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    setIsResending(true);
+    try {
+      await resendVerificationEmail();
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  const handleConfirmVerified = async () => {
+    setIsCheckingVerification(true);
+    try {
+      await confirmEmailVerified();
+    } finally {
+      setIsCheckingVerification(false);
     }
   };
 
@@ -164,12 +91,12 @@ export const CadastroValida: React.FC = () => {
   return (
     <div id="signup_screen_container" className="min-h-[75vh] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md glass rounded-3xl border-white/45 p-8 shadow-sm transition-all duration-300">
-        
+
         {isVerifying ? (
-          /* EMAIL CODE VERIFICATION VIEW */
-          <div className="space-y-5">
+          /* EMAIL VERIFICATION PENDING VIEW */
+          <div className="space-y-6">
             {/* Back button */}
-            <button 
+            <button
               type="button"
               onClick={() => setIsVerifying(false)}
               className="flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-850 font-bold cursor-pointer transition-colors"
@@ -179,124 +106,67 @@ export const CadastroValida: React.FC = () => {
             </button>
 
             {/* Header */}
-            <div className="text-center mb-4">
-              <div className="inline-flex bg-emerald-50 text-emerald-600 p-3 rounded-2xl border border-emerald-100 shadow-sm mb-3">
-                <Mail className="w-6 h-6 animate-pulse" />
+            <div className="text-center">
+              <div className="inline-flex bg-emerald-50 text-emerald-600 p-4 rounded-2xl border border-emerald-100 shadow-sm mb-4">
+                <MailCheck className="w-7 h-7" />
               </div>
-              <h1 className="text-xl font-black text-gray-900 leading-none">Verifique o seu E-mail</h1>
-              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                Insira o código de 6 dígitos enviado para <strong className="text-gray-700 font-bold block mt-0.5">{email}</strong>
+              <h1 className="text-xl font-black text-gray-900 leading-snug">Verifique o seu E-mail</h1>
+              <p className="text-xs text-gray-500 mt-2.5 leading-relaxed">
+                Enviamos um link de ativação para
+                <strong className="text-gray-700 font-bold block mt-1 text-sm">{email}</strong>
               </p>
             </div>
 
-            {/* 6-Digit PIN Fields */}
-            <div className="space-y-4">
-              <div className="flex justify-between gap-2.5 max-w-sm mx-auto" id="otp_container">
-                {codeDigits.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    ref={(el) => { inputRefs.current[idx] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleDigitChange(e.target.value, idx)}
-                    onKeyDown={(e) => handleKeyDown(e, idx)}
-                    className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-gray-200 bg-white/50 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 focus:outline-none transition-all"
-                  />
-                ))}
+            {/* Instructions */}
+            <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 space-y-3 text-sm">
+              <div className="flex gap-3">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                <p className="text-gray-700 text-xs leading-relaxed">Abra a caixa de entrada do e-mail <strong>{email}</strong></p>
               </div>
+              <div className="flex gap-3">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                <p className="text-gray-700 text-xs leading-relaxed">Clique no link <strong>"Verificar endereço de e-mail"</strong> no e-mail enviado pelo ValidaMais</p>
+              </div>
+              <div className="flex gap-3">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+                <p className="text-gray-700 text-xs leading-relaxed">Volte aqui e clique em <strong>"Já verifiquei meu e-mail"</strong> para acessar a plataforma</p>
+              </div>
+            </div>
 
-              {/* Verification Error */}
-              {verificationError && (
-                <div className="flex items-center gap-1.5 text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-100">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span className="font-semibold leading-snug">{verificationError}</span>
-                </div>
-              )}
+            {/* Tip: check spam */}
+            <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50/70 border border-amber-100 rounded-xl px-3.5 py-2.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>Não encontrou o e-mail? Verifique a pasta de <strong>spam</strong> ou <strong>promoções</strong>.</span>
+            </div>
 
-              {/* Action Buttons */}
+            {/* Action Buttons */}
+            <div className="space-y-3">
               <button
-                id="verify_code_submit_btn"
+                id="confirm_verified_btn"
                 type="button"
-                onClick={handleVerifyAndRegister}
-                disabled={loading}
+                onClick={handleConfirmVerified}
+                disabled={isCheckingVerification}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-xs hover:shadow-md cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {loading ? (
-                  <span className="font-mono">Validando...</span>
+                {isCheckingVerification ? (
+                  <span className="font-mono">Verificando...</span>
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    Confirmar e Ativar Conta
+                    Já verifiquei meu e-mail
                   </>
                 )}
               </button>
 
-              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/60">
-                <span className="text-gray-500">Não recebeu o código?</span>
-                <button
-                  type="button"
-                  onClick={handleResendCode}
-                  disabled={isResending}
-                  className="font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer flex items-center gap-1 transition-colors"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
-                  Reenviar código
-                </button>
-              </div>
-            </div>
-
-            {/* LIVE EMAIL SIMULATOR DECK */}
-            <div className="mt-5 border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4 shadow-3xs space-y-2 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black tracking-wider uppercase text-emerald-800 font-mono flex items-center gap-1.5">
-                  <Inbox className="w-3.5 h-3.5" />
-                  Servidor de E-mail (Developer Sandbox)
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowSimulator(!showSimulator)}
-                  className="text-[10px] text-emerald-700 hover:underline font-bold font-mono transition-all cursor-pointer"
-                >
-                  {showSimulator ? '[Ocultar]' : '[Visualizar]'}
-                </button>
-              </div>
-              
-              {showSimulator && (
-                <div className="bg-slate-900 text-slate-100 rounded-xl p-3.5 text-xs font-mono border border-slate-800 space-y-2 mt-1 relative overflow-hidden select-all">
-                  <div className="absolute right-2 top-2 bg-emerald-500/20 text-emerald-400 text-[8px] px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold uppercase tracking-wide">
-                    E-mail Enviado
-                  </div>
-                  <div className="space-y-1 text-slate-400 border-b border-slate-800/80 pb-2 mb-2">
-                    <div><strong className="text-white">De:</strong> nao-responder@validamais.com.br</div>
-                    <div><strong className="text-white">Para:</strong> {email}</div>
-                    <div><strong className="text-white">Componente:</strong> CodigoVerificacao</div>
-                  </div>
-                  <div className="space-y-2 pt-1 text-[11px] leading-relaxed">
-                    <p className="text-emerald-400">Olá, <strong className="text-white">{nome}</strong>!</p>
-                    <p className="text-slate-300">Use o seguinte código de validação para concluir o cadastro da sua conta no <strong>ValidaMais ({role === 'admin' ? 'Lojista' : 'Consumidor'})</strong>:</p>
-                    <div className="bg-slate-950/80 py-2 rounded-lg text-center border border-slate-800/50 my-2 select-all">
-                      <span className="text-xl font-black tracking-[0.25em] text-emerald-400">{generatedCode}</span>
-                    </div>
-                    <p className="text-[9.5px] text-slate-500">Este código expira em 10 minutos. Se não foi você quem solicitou, ignore.</p>
-                  </div>
-                  <div className="border-t border-slate-800/70 pt-2 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const chars = generatedCode.split('');
-                        setCodeDigits(chars);
-                        showAlert('Código copiado do simulador!', 'success');
-                      }}
-                      className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-bold cursor-pointer text-[9px] uppercase tracking-wider transition-colors"
-                    >
-                      Preencher Código
-                    </button>
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={handleResendEmail}
+                disabled={isResending}
+                className="w-full py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
+                {isResending ? 'Reenviando...' : 'Reenviar e-mail de verificação'}
+              </button>
             </div>
           </div>
         ) : (
@@ -342,6 +212,25 @@ export const CadastroValida: React.FC = () => {
                     placeholder="Ex: maria.silva@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="w-full text-sm px-4 py-2.5 ps-10 border border-gray-200 bg-white/40 focus:bg-white rounded-xl focus:border-emerald-500 focus:outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 font-mono uppercase mb-1">
+                  Telefone <span className="normal-case font-normal text-gray-400">(opcional)</span>
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
+                  <input
+                    id="cadastro_phone_input"
+                    type="tel"
+                    placeholder="Ex: (11) 9 9999-9999"
+                    value={telefone}
+                    onChange={(e) => setTelefone(e.target.value)}
+                    maxLength={20}
                     className="w-full text-sm px-4 py-2.5 ps-10 border border-gray-200 bg-white/40 focus:bg-white rounded-xl focus:border-emerald-500 focus:outline-none transition-all"
                   />
                 </div>
@@ -405,7 +294,7 @@ export const CadastroValida: React.FC = () => {
                 ) : (
                   <>
                     <UserPlus className="w-4 h-4" />
-                    Registrar Conta
+                    Criar Conta e Verificar E-mail
                   </>
                 )}
               </button>
@@ -419,13 +308,11 @@ export const CadastroValida: React.FC = () => {
 
             {/* Google Authentication Button */}
             {typeof window !== 'undefined' && window.self !== window.top && (
-              <div className="mb-4.5 p-3.5 bg-amber-50/70 border border-amber-200 text-xs text-amber-805 text-amber-900 rounded-xl space-y-1 text-left leading-relaxed font-sans shadow-2xs">
-                <span className="font-bold text-amber-950 block flex items-center gap-1">
-                  ⚠️ Restrição de Cookies do Iframe
-                </span>
+              <div className="mb-4 p-3.5 bg-amber-50/70 border border-amber-200 text-xs text-amber-900 rounded-xl space-y-1 text-left leading-relaxed shadow-2xs">
+                <span className="font-bold text-amber-950 block">⚠️ Restrição de Cookies do Iframe</span>
                 <p className="text-[10.5px]">
-                  O cadastro com o Google poderá falhar temporariamente no visualizador do editor por conta de restrições de cookies do navegador em iframes. 
-                  Ao ver um erro, <strong>abra esta aplicação em uma aba externa</strong> clicando no ícone no canto superior direito para cadastrar-se perfeitamente!
+                  O cadastro com o Google poderá falhar no visualizador do editor por restrições de cookies em iframes.
+                  Ao ver um erro, <strong>abra esta aplicação em uma aba externa</strong> para cadastrar-se perfeitamente.
                 </p>
               </div>
             )}
@@ -441,7 +328,7 @@ export const CadastroValida: React.FC = () => {
                 <path fill="#EA4335" d="M12.04 5.01c1.55 0 2.94.53 4.04 1.58l3.01-3c-1.83-1.7-4.22-2.73-7.05-2.73C7.22.86 3.19 3.56 1.15 7.5l3.87 3c.91-2.72 3.44-4.49 7.02-4.49z"/>
                 <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.35H12v4.51h6.46c-.29 1.48-1.12 2.73-2.38 3.58l3.71 2.88c2.16-1.99 3.7-4.91 3.7-8.62z"/>
                 <path fill="#FBBC05" d="M5.02 14.5c-.24-.72-.37-1.48-.37-2.27s.13-1.55.37-2.27L1.15 7.5C.3 9.22 0 10.97 0 12.23s.3 3.01.85 4.73l4.17-2.46z" />
-                <path fill="#34A853" d="M12 23.14c3.24 0 5.96-1.07 7.95-2.91l-3.71-2.88c-1.04.7-2.36 1.12-4.24 1.12-3.58 0-6.11-1.77-7.02-4.49l-3.87 3c2.04 3.94 6.07 6.66 12 23.14c3.24 0 5.96-1.07 7.95-2.91l-3.71-2.88c-1.04.7-2.36 1.12-4.24 1.12-3.58 0-6.11-1.77-7.02-4.49l-3.87 3c2.04 3.94 6.07 6.66 10.89 6.66z"/>
+                <path fill="#34A853" d="M12 23.14c3.24 0 5.96-1.07 7.95-2.91l-3.71-2.88c-1.04.7-2.36 1.12-4.24 1.12-3.58 0-6.11-1.77-7.02-4.49l-3.87 3c2.04 3.94 6.07 6.66 10.89 6.66z"/>
               </svg>
               Cadastrar com conta Google
             </button>
@@ -463,9 +350,26 @@ export const CadastroValida: React.FC = () => {
                 Sair e voltar para a página inicial
               </button>
             </div>
+
+            {/* Developer help */}
+            <div className="mt-5 pt-4 border-t border-dashed border-white/60 text-center">
+              <details className="text-left">
+                <summary className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-emerald-600 transition-colors cursor-pointer">
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  Problemas ao cadastrar? Veja dicas de configuração.
+                </summary>
+                <div className="mt-3 p-3 bg-white/50 border border-white/30 text-left rounded-xl text-[10px] text-slate-600 leading-relaxed space-y-2 backdrop-blur-sm shadow-xs">
+                  <span className="font-bold text-slate-800 block">Configuração do Firebase:</span>
+                  <ol className="list-decimal pl-4 space-y-1 font-sans">
+                    <li>Firebase Console → Authentication → Sign-in method</li>
+                    <li>Ative <strong>E-mail/Senha</strong> e <strong>Google</strong></li>
+                    <li>Para Google: configure o e-mail de suporte e salve</li>
+                  </ol>
+                </div>
+              </details>
+            </div>
           </>
         )}
-
       </div>
     </div>
   );

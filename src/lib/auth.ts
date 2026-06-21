@@ -13,15 +13,18 @@ import { Usuario, UserRole } from '../types';
  * SECURITY: This function intentionally never persists passwords. Credentials are
  * handled exclusively by Firebase Authentication, which stores them hashed/salted.
  */
-export async function createOrUpdateUserDocument(uid: string, email: string, nome: string, role: UserRole): Promise<Usuario> {
+export async function createOrUpdateUserDocument(uid: string, email: string, nome: string, role: UserRole, telefone?: string): Promise<Usuario> {
   const userRef = doc(db, 'usuarios', uid);
-  const userDoc = {
+  const userDoc: Record<string, any> = {
     uid,
     email,
     nome,
     role,
     criadoEm: serverTimestamp()
   };
+  if (telefone) {
+    userDoc.telefone = telefone;
+  }
 
   try {
     await setDoc(userRef, userDoc);

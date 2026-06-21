@@ -16,6 +16,7 @@ export interface Usuario {
   email: string;
   nome: string;
   role: UserRole;
+  telefone?: string;
   senha?: string;
   criadoEm: any; // Firestore Timestamp
 }
