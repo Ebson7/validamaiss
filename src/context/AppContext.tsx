@@ -4,11 +4,12 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
+  sendEmailVerification,
   User as FirebaseUser,
   GoogleAuthProvider,
   signInWithPopup
@@ -67,7 +68,10 @@ interface AppContextType {
   navigateTo: (screen: ScreenType, productId?: string | null) => void;
   loginUser: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (selectedRole?: UserRole) => Promise<void>;
-  registerUser: (email: string, password: string, name: string, role: UserRole) => Promise<void>;
+  registerUser: (email: string, password: string, name: string, role: UserRole, telefone?: string) => Promise<void>;
+  emailVerificationPending: boolean;
+  resendVerificationEmail: () => Promise<void>;
+  confirmEmailVerified: () => Promise<boolean>;
   logoutUser: () => Promise<void>;
   saveProduct: (formData: any, productId: string | null) => Promise<Produto>;
   deleteProduct: (id: string) => Promise<void>;
@@ -182,6 +186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('validamais_reservas');
     return !saved; // Only show spinner if cache is empty
   });
+  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
 
   // Fast-boot safety fallback: prevents UI lockups by ensuring no loader gets stuck on startup
   useEffect(() => {
@@ -788,22 +793,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Register handler
-  const registerUser = async (email: string, password: string, name: string, role: UserRole) => {
+  const registerUser = async (email: string, password: string, name: string, role: UserRole, telefone?: string) => {
     setLoading(true);
     const emailLower = email.trim().toLowerCase();
 
     try {
       // 1. Primary path: real Firebase Authentication (password stored hashed server-side).
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name.trim(), role);
+
+      // Send a real verification email — Firebase emails the user a secure link.
+      try {
+        await sendEmailVerification(cred.user);
+      } catch (verifyErr) {
+        console.warn('sendEmailVerification failed (non-fatal):', verifyErr);
+      }
+
+      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name.trim(), role, telefone);
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
-      showAlert('Sua conta foi criada no Firebase e conectada com sucesso!', 'success');
-      navigateTo(role === 'admin' ? 'admin-dashboard' : 'home');
+
+      // Signal the registration screen to show the email verification pending state.
+      setEmailVerificationPending(true);
+      showAlert(`Conta criada! Verifique seu e-mail (${email}) para ativar sua conta antes de continuar.`, 'info');
+      // Do NOT navigate away — the Cadastro screen transitions to a "verify email" view.
       return;
     } catch (err: any) {
       if (err?.code === 'auth/email-already-in-use') {
-        showAlert('Este e-mail já está sendo utilizado.', 'error');
+        showAlert('Este e-mail já está sendo utilizado por outra conta.', 'error');
         setLoading(false);
         throw new Error('E-mail já está em uso.');
       }
@@ -813,9 +829,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // every write. Make this explicit instead of silently going local.
       if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/configuration-not-found') {
         showAlert(
-          'O login por E-mail/Senha não está ativado no Firebase. Sua conta NÃO foi salva no servidor e os dados não serão persistidos. Ative em: Firebase Console → Authentication → Sign-in method → Email/Senha.',
+          'O login por E-mail/Senha não está ativado no Firebase. Sua conta NÃO foi salva no servidor. Ative em: Firebase Console → Authentication → Sign-in method → Email/Senha.',
           'error'
         );
+        setLoading(false);
+        throw err;
       }
       console.warn("Firebase Auth indisponível. Criando conta de teste apenas neste navegador (offline):", err);
     }
@@ -837,6 +855,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email: emailLower,
         nome: name.trim(),
         role: role,
+        ...(telefone ? { telefone } : {}),
         criadoEm: new Date().toISOString()
       };
 
@@ -846,10 +865,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
 
-      showAlert(`Sua conta de teste '${userProfile.nome}' foi criada localmente neste navegador!`, 'success');
+      showAlert(`Conta de teste criada para '${userProfile.nome}' neste navegador (modo offline).`, 'success');
       navigateTo(role === 'admin' ? 'admin-dashboard' : 'home');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Resend the Firebase email verification link to the currently signed-in user.
+  const resendVerificationEmail = async () => {
+    if (!auth.currentUser) {
+      showAlert('Nenhuma sessão ativa encontrada. Por favor, faça o cadastro novamente.', 'error');
+      return;
+    }
+    try {
+      await sendEmailVerification(auth.currentUser);
+      showAlert('E-mail de verificação reenviado! Verifique sua caixa de entrada.', 'success');
+    } catch (err: any) {
+      if (err?.code === 'auth/too-many-requests') {
+        showAlert('Muitas tentativas. Aguarde alguns minutos antes de reenviar.', 'warning');
+      } else {
+        showAlert('Falha ao reenviar o e-mail. Tente novamente em instantes.', 'error');
+      }
+    }
+  };
+
+  // Reload the Firebase user token and check whether the email is now verified.
+  // Returns true when verified and navigates to the correct screen.
+  const confirmEmailVerified = async (): Promise<boolean> => {
+    if (!auth.currentUser) return false;
+    try {
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        setEmailVerificationPending(false);
+        const profile = await getUserProfile(auth.currentUser.uid);
+        if (profile) {
+          setUser(profile);
+          showAlert(`Bem-vindo, ${profile.nome}! Sua conta foi verificada com sucesso.`, 'success');
+          navigateTo(profile.role === 'admin' ? 'admin-dashboard' : 'home');
+        }
+        return true;
+      }
+      showAlert('E-mail ainda não verificado. Clique no link enviado para a sua caixa de entrada.', 'warning');
+      return false;
+    } catch (err) {
+      console.error('confirmEmailVerified error:', err);
+      showAlert('Não foi possível verificar o status do e-mail. Tente novamente.', 'error');
+      return false;
     }
   };
 
@@ -1324,6 +1386,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginUser,
         loginWithGoogle,
         registerUser,
+        emailVerificationPending,
+        resendVerificationEmail,
+        confirmEmailVerified,
         logoutUser,
         saveProduct,
         deleteProduct,
