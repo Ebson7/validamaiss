@@ -699,6 +699,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
     } catch (err: any) {
+      // If the Email/Password provider is disabled in the Firebase project, the
+      // login can never create a real server session — warn explicitly so the
+      // user knows their writes won't persist until it's enabled.
+      if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/configuration-not-found') {
+        showAlert(
+          'O login por E-mail/Senha não está ativado no Firebase. Ative em: Firebase Console → Authentication → Sign-in method → Email/Senha. Sem isso, os dados não são salvos no servidor.',
+          'error'
+        );
+      }
       console.warn("Login via Firebase Auth indisponível. Tentando sessão de teste local deste navegador:", err);
     }
 
@@ -797,6 +806,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showAlert('Este e-mail já está sendo utilizado.', 'error');
         setLoading(false);
         throw new Error('E-mail já está em uso.');
+      }
+      // Detect the most common root cause of "data is not saved to the database":
+      // the Email/Password sign-in provider is not enabled in the Firebase
+      // project, so no real auth session is ever created and Firestore rejects
+      // every write. Make this explicit instead of silently going local.
+      if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/configuration-not-found') {
+        showAlert(
+          'O login por E-mail/Senha não está ativado no Firebase. Sua conta NÃO foi salva no servidor e os dados não serão persistidos. Ative em: Firebase Console → Authentication → Sign-in method → Email/Senha.',
+          'error'
+        );
       }
       console.warn("Firebase Auth indisponível. Criando conta de teste apenas neste navegador (offline):", err);
     }
