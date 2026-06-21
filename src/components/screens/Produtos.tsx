@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Produto } from '../../types';
 import { FiltrosProdutos } from '../FiltrosProdutos';
@@ -22,9 +22,28 @@ export const ProdutosValida: React.FC = () => {
   const [sortBy, setSortBy] = useState('URGENTE_PRIMEIRO');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 
-  // Derive unique categories and stores for filter dropdowns
-  const availableCategories = Array.from(new Set(produtos.map(p => p.categoria))).filter(Boolean);
   const availableStores = Array.from(new Set(produtos.map(p => p.nomeLoja))).filter(Boolean);
+
+  // Stable category list for the filter chips.
+  //
+  // The chips were "flickering" (appearing/disappearing) because they were fed
+  // directly from `categorias`, whose Firestore-backed value can momentarily
+  // shrink/change. We instead build an order-stable UNION of:
+  //   1. the standard categories (always present, so the list never collapses),
+  //   2. categories that the currently loaded products actually use,
+  //   3. any admin-registered categories from Firestore.
+  // Because the resulting set of names is stable and keyed by name in the UI,
+  // React reconciles identical chips with no visual flicker even if `categorias`
+  // churns underneath.
+  const STANDARD_CATEGORIES = ['Laticínios', 'Padaria', 'Hortifrúti', 'Carnes', 'Bebidas', 'Mercearia'];
+  const filterCategories = useMemo(() => {
+    const names = new Set<string>();
+    STANDARD_CATEGORIES.forEach((n) => names.add(n));
+    produtos.forEach((p) => { if (p.categoria) names.add(p.categoria.trim()); });
+    categorias.forEach((c) => { if (c.nome) names.add(c.nome.trim()); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [produtos, categorias]);
 
   // Filter application pipeline
   const filteredProducts = produtos.filter((product) => {
@@ -162,7 +181,7 @@ export const ProdutosValida: React.FC = () => {
         setSelectedStore={setSelectedStore}
         sortBy={sortBy}
         setSortBy={setSortBy}
-        categories={categorias.length > 0 ? categorias.map(c => c.nome) : ['Laticínios', 'Padaria', 'Hortifrúti', 'Carnes', 'Bebidas', 'Mercearia']}
+        categories={filterCategories}
         stores={availableStores}
       />
 
