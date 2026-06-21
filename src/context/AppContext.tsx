@@ -268,8 +268,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           results.push({ id: docSnap.id, ...docSnap.data() } as Categoria);
         });
         if (results.length > 0) {
-          setCategorias(results);
-          localStorage.setItem('validamais_categorias', JSON.stringify(results));
+          // Merge default categories with those from Firestore to guarantee we never see a truncated 
+          // or flashing list of categories while documents are being loaded or seeded one-by-one.
+          const merged = new Map<string, Categoria>();
+          DEFAULT_CATEGORIES.forEach(c => merged.set(c.nome.toLowerCase(), c));
+          results.forEach(c => merged.set(c.nome.toLowerCase(), c));
+          const finalSet = Array.from(merged.values());
+          
+          setCategorias(finalSet);
+          localStorage.setItem('validamais_categorias', JSON.stringify(finalSet));
         } else {
           // If Firestore collection 'categorias' is empty, seed it on demand asynchronously
           const seedCategoriesAsync = async () => {
