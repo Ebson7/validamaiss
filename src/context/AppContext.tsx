@@ -43,7 +43,8 @@ export type ScreenType =
   | 'admin-produtos-novo' 
   | 'admin-produtos-editar'
   | 'admin-reservas'
-  | 'admin-categorias';
+  | 'admin-categorias'
+  | 'ceo-dashboard';
 
 interface Alert {
   type: 'success' | 'error' | 'warning' | 'info';

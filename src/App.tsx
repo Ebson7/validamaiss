@@ -16,6 +16,7 @@ import { AdminDashboardValida } from './components/screens/AdminDashboard';
 import { AdminProdutosValida } from './components/screens/AdminProdutos';
 import { AdminReservasValida } from './components/screens/AdminReservas';
 import { AdminCategoriasValida } from './components/screens/AdminCategorias';
+import { CeoDashboard } from './components/screens/CeoDashboard';
 import { AlertCircle, CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -47,6 +48,8 @@ function AppContent() {
         return <AdminReservasValida />;
       case 'admin-categorias':
         return <AdminCategoriasValida />;
+      case 'ceo-dashboard':
+        return <CeoDashboard />;
       default:
         return <HomeValida />;
     }

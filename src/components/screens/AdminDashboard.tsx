@@ -5,10 +5,11 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, TrendingUp, Tag, Coins, Save, Trash2, Award, Sparkles, Star, Trophy, ShieldCheck, Check, CreditCard, ChevronRight, X } from 'lucide-react';
+import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, TrendingUp, Tag, Coins, Save, Trash2, Award, Sparkles, Star, Trophy, ShieldCheck, Check, CreditCard, ChevronRight, X, AlertTriangle } from 'lucide-react';
+import { Produto } from '../../types';
 
 export const AdminDashboardValida: React.FC = () => {
-  const { user, navigateTo, produtos, reservas: allReservas, produtosLoading, reservasLoadingPre, clearAllDatabaseUsers, updateUserProfile, showAlert } = useApp();
+  const { user, navigateTo, produtos, reservas: allReservas, produtosLoading, reservasLoadingPre, clearAllDatabaseUsers, updateUserProfile, showAlert, saveProduct } = useApp();
 
   // Advertiser space local state
   const [sloganInput, setSloganInput] = useState(user?.destaqueMensagem || '');
@@ -28,6 +29,89 @@ export const AdminDashboardValida: React.FC = () => {
 
   // 1. Get products registered by this specific merchant admin
   const myProducts = produtos.filter(p => p.adminId === user?.uid);
+
+  // Expiration calculation helper
+  const getExpiryStatus = (expiryDateStr: string) => {
+    const now = new Date();
+    const expiry = new Date(expiryDateStr + 'T23:59:59');
+    const diffMs = expiry.getTime() - now.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    const todayStr = now.toISOString().split('T')[0];
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    return {
+      isExpiringSoon: expiryDateStr === todayStr || expiryDateStr === tomorrowStr || (diffMs > 0 && diffHours <= 24),
+      diffHours: Math.max(0, Math.round(diffHours)),
+      isToday: expiryDateStr === todayStr,
+      isTomorrow: expiryDateStr === tomorrowStr
+    };
+  };
+
+  // Products expiring in less than 24 hours
+  const expiringSoonProducts = myProducts.filter(p => {
+    const totalLeft = p.quantidadeDisponivel - p.quantidadeReservada;
+    if (totalLeft <= 0 || p.status === 'esgotado') return false;
+    const { isExpiringSoon } = getExpiryStatus(p.dataValidade);
+    return isExpiringSoon;
+  });
+
+  // Apply Quick Aggressive Discount
+  const applyQuickDiscount = async (product: Produto, percent: number) => {
+    const newPrice = Math.round((product.precoOriginal * (1 - percent / 100)) * 100) / 100;
+    const updatedData = {
+      nomeProduto: product.nomeProduto,
+      categoria: product.categoria,
+      descricao: product.descricao || '',
+      precoOriginal: Number(product.precoOriginal),
+      precoPromocional: Number(newPrice),
+      dataValidade: product.dataValidade,
+      quantidadeDisponivel: Number(product.quantidadeDisponivel),
+      endereco: product.endereco,
+      nomeLoja: product.nomeLoja,
+      imageUrl: product.imageUrl || '',
+      status: product.status || 'disponivel',
+      adminId: product.adminId
+    };
+
+    try {
+      await saveProduct(updatedData, product.id || null);
+      showAlert(`Desconto agressivo de ${percent}% aplicado com sucesso ao lote ${product.nomeProduto}!`, 'success');
+    } catch (err) {
+      showAlert('Erro ao aplicar desconto rápido.', 'error');
+    }
+  };
+
+  // Create Mock Test Product for Expiry Testing
+  const handleCreateTestProduct = async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    const testProductData = {
+      nomeProduto: 'Iogurte Grego Frutas Vermelhas 500g 🍓',
+      categoria: 'Laticínios',
+      descricao: 'Lote de teste com vencimento curto para simulação de descontos agressivos na plataforma.',
+      precoOriginal: 16.90,
+      precoPromocional: 11.90,
+      dataValidade: tomorrowStr,
+      quantidadeDisponivel: 15,
+      quantidadeReservada: 0,
+      imageUrl: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=60&w=400',
+      status: 'disponivel',
+      endereco: user?.endereco || 'Rua Pamplona, 450 - Jardim Paulista, São Paulo/SP',
+      nomeLoja: user?.nome || 'Minha Loja Parceira'
+    };
+
+    try {
+      await saveProduct(testProductData, null);
+      showAlert('Lote crítico de teste simulado com sucesso na base de dados! Verifique o painel abaixo.', 'success');
+    } catch (err) {
+      showAlert('Erro ao carregar simulação de lote do produto.', 'error');
+    }
+  };
 
   // 2. Scan reservations and compute metrics
   let pending = 0;
@@ -205,6 +289,149 @@ export const AdminDashboardValida: React.FC = () => {
           </div>
 
         </div>
+      </div>
+
+      {/* PAINEL DE ALERTAS AUTOMÁTICOS DE VENCIMENTO CURTO (< 24 HORAS) */}
+      <div 
+        id="expiry_alert_system_board" 
+        className="glass rounded-3xl p-6 border-amber-300/40 shadow-xs space-y-4 relative overflow-hidden bg-gradient-to-br from-amber-500/5 via-transparent to-transparent font-sans"
+      >
+        {/* Decorative background glow */}
+        <div className="absolute right-0 top-0 w-24 h-24 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200/40 pb-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <span className="relative flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-500 flex items-center justify-center text-[9px] font-black text-white">!</span>
+              </span>
+              Alerta de Vencimento Iminente (Urgência &lt; 24h) ⚠️
+            </h3>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+              Evite desperdícios e perdas financeiras! Itens com menos de 24 horas para o vencimento exigem descontos agressivos para escoamento acelerado de gôndola.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCreateTestProduct}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 border border-amber-500 text-white text-[10px] font-black uppercase font-mono tracking-wider rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+            title="Simular novos cenários curtos criando itens prestes a vencer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Simular Lote Crítico
+          </button>
+        </div>
+
+        {expiringSoonProducts.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {expiringSoonProducts.map((p) => {
+              const totalLeft = p.quantidadeDisponivel - p.quantidadeReservada;
+              const { isToday } = getExpiryStatus(p.dataValidade);
+              
+              const price30 = Math.round((p.precoOriginal * 0.70) * 100) / 100;
+              const price50 = Math.round((p.precoOriginal * 0.50) * 100) / 100;
+              const price75 = Math.round((p.precoOriginal * 0.25) * 100) / 100;
+
+              return (
+                <div 
+                  key={p.id} 
+                  className="bg-white/65 hover:bg-white/80 rounded-2xl p-4 border border-white hover:border-amber-400/50 shadow-2xs hover:shadow-xs transition-all duration-300 flex flex-col justify-between gap-4 relative overflow-hidden"
+                >
+                  {isToday && (
+                    <div className="absolute inset-x-0 top-0 h-1 bg-rose-500 animate-pulse" />
+                  )}
+
+                  {/* Header info */}
+                  <div className="flex gap-3">
+                    <img
+                      src={p.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=60&w=150'}
+                      alt={p.nomeProduto}
+                      className="w-12 h-12 rounded-xl object-cover border border-slate-100 shrink-0 shadow-3xs"
+                    />
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <h4 className="font-extrabold text-sm text-slate-900 leading-tight">{p.nomeProduto}</h4>
+                        <span className="text-[10px] bg-slate-100 font-bold px-1.5 py-0.5 rounded-md text-slate-600 font-mono">
+                          {p.categoria}
+                        </span>
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-[11px] text-slate-500 font-semibold font-mono">
+                          Restam: <strong className="text-slate-800 font-black">{totalLeft} un.</strong>
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-[11px] text-slate-500 font-semibold font-mono">
+                          Preço Promo: <strong className="text-emerald-700 font-extrabold">{p.precoPromocional.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Warning Indicator */}
+                  <div className={`flex items-center gap-2 px-3 py-2 border rounded-xl ${isToday ? 'bg-rose-50/70 border-rose-100 text-rose-900' : 'bg-amber-50/70 border-amber-100 text-amber-900'}`}>
+                    <AlertTriangle className={`w-4 h-4 shrink-0 col-span-1 ${isToday ? 'text-rose-600 animate-bounce' : 'text-amber-600'}`} />
+                    <div className="text-[11px] font-semibold leading-none">
+                      {isToday ? (
+                        <span className="text-rose-700 font-black flex items-center gap-1 leading-snug">
+                          💀 VENCE HOJE! Risco máximo de descarte sanitário!
+                        </span>
+                      ) : (
+                        <span className="text-amber-800 font-bold leading-snug">
+                          ⏰ Vence amanhã! ({p.dataValidade}) - Ajuste recomendado.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick aggressive discount selector capsules */}
+                  <div className="space-y-2 pt-2 border-t border-dashed border-slate-200">
+                    <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase font-mono block">
+                      Aplicar Super Desconto Rápido:
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applyQuickDiscount(p, 30)}
+                        className="py-2 px-1 hover:scale-102 hover:shadow-xs hover:border-emerald-300 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-850 rounded-xl text-[10px] font-mono font-black uppercase text-center transition-all cursor-pointer"
+                        title="Aplicar desconto moderado de 30% do original"
+                      >
+                        -30% R$ {price30.toFixed(2)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyQuickDiscount(p, 50)}
+                        className="py-2 px-1 hover:scale-102 hover:shadow-xs hover:border-amber-300 bg-amber-50 hover:bg-amber-100 border border-amber-100 text-amber-850 rounded-xl text-[10px] font-mono font-black uppercase text-center transition-all cursor-pointer shadow-2xs"
+                        title="Aplicar desconto agressivo de 50% do original"
+                      >
+                        -50% R$ {price50.toFixed(2)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyQuickDiscount(p, 75)}
+                        className="py-2 px-1 hover:scale-102 hover:shadow-xs hover:border-rose-300 bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-850 rounded-xl text-[10px] font-mono font-black uppercase text-center transition-all cursor-pointer"
+                        title="Liquidação limite de 75% para zerar o estoque hoje"
+                      >
+                        -75% R$ {price75.toFixed(2)}
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 border border-dashed border-slate-200 rounded-2xl bg-slate-50/40 text-center space-y-2 max-w-xl mx-auto">
+            <span className="text-xl">🌿</span>
+            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide font-mono">Sem Lotes Críticos (<span className="text-amber-600 font-bold">&lt;24h</span>)</h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+              Perfeito! Nenhum lote cadastrado expira no prazo crítico de 24 horas. Para experimentar o fluxo de desconto agressivo, clique em <strong>"Simular Lote Crítico"</strong>.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Metrics widgets */}
