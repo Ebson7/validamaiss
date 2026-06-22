@@ -13,7 +13,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - run: npm install -g firebase-tools
-      - run: firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}" --project gen-lang-client-0971671639 --site gen-lang-client-0971671639
+
+      # Authenticate with a Google Cloud service account (Application Default
+      # Credentials) instead of the deprecated `firebase login:ci` token.
+      #
+      # Required repository secret: FIREBASE_SERVICE_ACCOUNT
+      #   -> the full JSON key of a service account in project
+      #      gen-lang-client-0971671639 with at least these roles:
+      #        - Firebase Hosting Admin (roles/firebasehosting.admin)
+      #        - Firebase Rules Admin   (roles/firebaserules.admin)
+      #        - Service Usage Consumer (roles/serviceusage.serviceUsageConsumer)
+      #
+      # Deploys the application AND the Firestore security rules so the database
+      # is never left in an open/test-mode state in production.
+      - name: Deploy hosting and Firestore rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          firebase deploy --only hosting,firestore:rules --project gen-lang-client-0971671639
+          rm -f "$GOOGLE_APPLICATION_CREDENTIALS"

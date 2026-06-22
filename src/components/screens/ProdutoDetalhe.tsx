@@ -373,15 +373,36 @@ ${shareUrl}`
                       ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
                       : 'bg-white border-gray-200 text-gray-700 hover:bg-rose-50 hover:border-rose-150 hover:text-rose-605'
                   }`}
+                  title="Favoritar este lote de alimento"
                 >
                   <Heart 
                     className={`w-4 h-4 transition-all ${
                       isFavoritado(produto.id!) 
                         ? 'text-rose-600 fill-rose-600 scale-110 font-bold' 
-                        : 'text-gray-550 text-gray-500'
+                        : 'text-gray-500'
                     }`} 
                   />
-                  <span>{isFavoritado(produto.id!) ? 'Favoritado' : 'Favoritar Lote'}</span>
+                  <span>{isFavoritado(produto.id!) ? 'Lote Favoritado' : 'Favoritar Lote'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toggleFavoritoLoja(produto.nomeLoja)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs border ${
+                    isLojaFavoritada(produto.nomeLoja)
+                      ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-rose-50 hover:border-red-150 hover:text-rose-600'
+                  }`}
+                  title="Favoritar esta loja parceira"
+                >
+                  <Store 
+                    className={`w-4 h-4 transition-all ${
+                      isLojaFavoritada(produto.nomeLoja) 
+                        ? 'text-rose-600 fill-rose-600 scale-110 font-bold' 
+                        : 'text-gray-500'
+                    }`} 
+                  />
+                  <span>{isLojaFavoritada(produto.nomeLoja) ? 'Loja Favoritada' : 'Favoritar Loja'}</span>
                 </button>
               </div>
             </div>
