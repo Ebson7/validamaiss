@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, TrendingUp, Tag } from 'lucide-react';
+import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, TrendingUp, Tag, Coins, Save, Trash2, Award } from 'lucide-react';
 
 export const AdminDashboardValida: React.FC = () => {
   const { user, navigateTo, produtos, reservas: allReservas, produtosLoading, reservasLoadingPre, clearAllDatabaseUsers } = useApp();
@@ -13,10 +13,13 @@ export const AdminDashboardValida: React.FC = () => {
   // 1. Get products registered by this specific merchant admin
   const myProducts = produtos.filter(p => p.adminId === user?.uid);
 
-  // 2. Scan reservations
+  // 2. Scan reservations and compute metrics
   let pending = 0;
   let withdrawn = 0;
   let savedCount = 0;
+  let recoveredValue = 0;      // Value received from ValidaMais sales (status === 'retirado')
+  let pendingValue = 0;        // Value reserved/pending in progress
+  let avoidedLossValue = 0;    // Original shelf value of the items that were successfully retrieved (prevented total waste cost)
 
   allReservas.forEach((res) => {
     // Filter dynamically by products belonging to this admin
@@ -24,10 +27,19 @@ export const AdminDashboardValida: React.FC = () => {
     const belongsToLoja = res.nomeLoja === user?.nome || (user?.nome && res.nomeLoja?.toLowerCase().includes(user.nome.toLowerCase()));
     
     if (hasProduct || belongsToLoja) {
-      if (res.status === 'pendente') pending++;
+      const prod = produtos.find(p => p.id === res.produtoId);
+      // If we can't find the product details, fall back to calculating original price relative to the discount
+      const originalUnitPrice = prod ? prod.precoOriginal : (res.precoTotal / res.quantidade) * 2.22;
+
+      if (res.status === 'pendente') {
+        pending++;
+        pendingValue += res.precoTotal;
+      }
       if (res.status === 'retirado') {
         withdrawn++;
         savedCount += res.quantidade;
+        recoveredValue += res.precoTotal;
+        avoidedLossValue += (originalUnitPrice * res.quantidade);
       }
     }
   });
@@ -36,7 +48,11 @@ export const AdminDashboardValida: React.FC = () => {
     totalProducts: myProducts.length,
     pendingReservations: pending,
     withdrawnReservations: withdrawn,
-    itemsSaved: savedCount
+    itemsSaved: savedCount,
+    recoveredValue,
+    pendingValue,
+    avoidedLossValue,
+    totalLossAvoidedPercent: avoidedLossValue > 0 ? ((recoveredValue / avoidedLossValue) * 100) : 0
   };
 
   const loading = false;
@@ -58,6 +74,74 @@ export const AdminDashboardValida: React.FC = () => {
         </button>
       </div>
 
+      {/* Economiómetro Financeiro do Lojista Card */}
+      <div 
+        id="merchant_savings_board" 
+        className="bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 rounded-3xl p-6 text-white shadow-md relative overflow-hidden flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 border border-emerald-500/25 animate-fade-in"
+      >
+        {/* Background ambient glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(16,185,129,0.12),transparent_50%)] pointer-events-none" />
+        
+        <div className="space-y-2 z-10">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono tracking-widest uppercase text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/20 font-extrabold">
+            <Coins className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            Indicadores de Recuperação de Ativos
+          </span>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight leading-tight">
+            Seu Balanço de Desperdício Evitado ♻️
+          </h2>
+          <p className="text-xs text-emerald-100/85 font-medium max-w-lg leading-relaxed">
+            Aqui você acompanha em tempo real o faturamento de liquidação recuperado e o prejuízo de descarte evitado ao vender lotes antes do fim da data regulamentar.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap sm:flex-nowrap gap-4 sm:gap-6 z-10 w-full lg:w-auto items-stretch justify-between">
+          
+          {/* Valor Recuperado com Vendas */}
+          <div className="bg-emerald-900/20 border border-emerald-500/15 rounded-2xl p-4 flex-1 min-w-[145px] shadow-2xs">
+            <div className="text-[9px] font-extrabold text-emerald-300 font-mono uppercase tracking-wider flex items-center gap-1.5">
+              <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              Valor Recuperado
+            </div>
+            <div className="text-xl sm:text-2xl font-black font-mono text-amber-400 mt-1.5 leading-none">
+              {metrics.recoveredValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </div>
+            <div className="text-[9px] text-emerald-300/70 font-medium mt-1 uppercase font-mono">
+              Entrou no caixa
+            </div>
+          </div>
+
+          {/* Prejuízo de Prateleira Evitado */}
+          <div className="bg-white/5 border border-white/5 rounded-2xl p-4 flex-1 min-w-[160px] shadow-2xs">
+            <div className="text-[9px] font-extrabold text-slate-300 font-mono uppercase tracking-wider flex items-center gap-1.5">
+              <Save className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              Perda Integral Evitada
+            </div>
+            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400 mt-1.5 leading-none">
+              {metrics.avoidedLossValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </div>
+            <div className="text-[9px] text-slate-400 font-medium mt-1 uppercase font-mono">
+              Valor de gôndola salvo
+            </div>
+          </div>
+
+          {/* Reserva Ativa / Potencial */}
+          <div className="bg-amber-950/20 border border-amber-500/10 rounded-2xl p-4 flex-1 min-w-[140px] shadow-2xs">
+            <div className="text-[9px] font-extrabold text-amber-300 font-mono uppercase tracking-wider flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              Faturamento Pendente
+            </div>
+            <div className="text-xl sm:text-2xl font-black font-mono text-amber-300 mt-1.5 leading-none">
+              {metrics.pendingValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </div>
+            <div className="text-[9px] text-amber-400/60 font-semibold mt-1 uppercase font-mono">
+              Em reservas ativas
+            </div>
+          </div>
+
+        </div>
+      </div>
+
       {/* Metrics widgets */}
       {loading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
@@ -65,12 +149,13 @@ export const AdminDashboardValida: React.FC = () => {
             <div key={n} className="bg-gray-100 h-28 rounded-2xl border" />
           ))}
         </div>
-      ) : (        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           {/* Card 1: Active lots */}
           <div className="glass border-white/50 rounded-2xl p-5 flex flex-col justify-between shadow-xs">
             <div className="flex items-center justify-between text-gray-400">
-              <span className="text-[10px] font-bold font-mono uppercase tracking-wider">Produtos Postados</span>
-              <Package className="w-5 h-5 text-gray-405" />
+              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-gray-500">Produtos Postados</span>
+              <Package className="w-5 h-5 text-gray-400" />
             </div>
             <div className="mt-4">
               <span className="text-3xl font-black text-slate-800">{metrics.totalProducts}</span>
@@ -82,7 +167,7 @@ export const AdminDashboardValida: React.FC = () => {
           <div className="glass border-orange-200/55 rounded-2xl p-5 flex flex-col justify-between shadow-xs ring-2 ring-amber-500/10">
             <div className="flex items-center justify-between text-amber-550">
               <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-amber-700">Aguardando Coleta</span>
-              <Clock className="w-5 h-5" />
+              <Clock className="w-5 h-5 text-amber-500" />
             </div>
             <div className="mt-4">
               <span className="text-3xl font-black text-amber-600">{metrics.pendingReservations}</span>
