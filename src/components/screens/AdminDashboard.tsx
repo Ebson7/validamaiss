@@ -3,12 +3,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, TrendingUp, Tag, Coins, Save, Trash2, Award } from 'lucide-react';
+import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, TrendingUp, Tag, Coins, Save, Trash2, Award, Sparkles, Star, Trophy, ShieldCheck, Check, CreditCard, ChevronRight, X } from 'lucide-react';
 
 export const AdminDashboardValida: React.FC = () => {
-  const { user, navigateTo, produtos, reservas: allReservas, produtosLoading, reservasLoadingPre, clearAllDatabaseUsers } = useApp();
+  const { user, navigateTo, produtos, reservas: allReservas, produtosLoading, reservasLoadingPre, clearAllDatabaseUsers, updateUserProfile, showAlert } = useApp();
+
+  // Advertiser space local state
+  const [sloganInput, setSloganInput] = useState(user?.destaqueMensagem || '');
+  const [editSlogan, setEditSlogan] = useState(false);
+  
+  // Checkout states
+  const [checkoutPlan, setCheckoutPlan] = useState<'bronze' | 'ouro' | null>(null);
+  const [checkoutMethod, setCheckoutMethod] = useState<'pix' | 'cartao' | null>(null);
+  const [pixCopied, setPixCopied] = useState(false);
+  const [paying, setPaying] = useState(false);
+  
+  // Card mock details
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCVV, setCardCVV] = useState('');
 
   // 1. Get products registered by this specific merchant admin
   const myProducts = produtos.filter(p => p.adminId === user?.uid);
@@ -53,6 +69,55 @@ export const AdminDashboardValida: React.FC = () => {
     pendingValue,
     avoidedLossValue,
     totalLossAvoidedPercent: avoidedLossValue > 0 ? ((recoveredValue / avoidedLossValue) * 100) : 0
+  };
+
+  const handleUpdateSlogan = async () => {
+    try {
+      await updateUserProfile({ destaqueMensagem: sloganInput });
+      setEditSlogan(false);
+      showAlert('Frase de destaque patrocinado atualizada com sucesso!', 'success');
+    } catch (err) {
+      showAlert('Operação falhou ao atualizar frase.', 'error');
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (window.confirm('Tem certeza de que deseja cancelar seu destaque patrocinado e remover os banners da página principal?')) {
+      try {
+        await updateUserProfile({
+          destaquePlano: undefined,
+          destaqueAtivo: false,
+          destaqueMensagem: undefined
+        });
+        setSloganInput('');
+        showAlert('Destaque mensal cancelado e banners desvinculados.', 'info');
+      } catch (err) {
+        showAlert('Erro ao cancelar destaque.', 'error');
+      }
+    }
+  };
+
+  const handleProcessAdminPayment = async () => {
+    if (!checkoutPlan) return;
+    setPaying(true);
+
+    setTimeout(async () => {
+      try {
+        await updateUserProfile({
+          destaquePlano: checkoutPlan,
+          destaqueAtivo: true,
+          destaqueMensagem: sloganInput || (checkoutPlan === 'ouro' ? 'Laticínios fresquinhos e padaria com até 65% de desconto!' : 'Frutas e Hortaliças selecionadas do dia!')
+        });
+        showAlert(`Sucesso! Sua assinatura do Plano ${checkoutPlan === 'ouro' ? 'Ouro' : 'Bronze'} foi processada. Seus anúncios estão em exibição na Home!`, 'success');
+        setCheckoutPlan(null);
+        setCheckoutMethod(null);
+        setPixCopied(false);
+      } catch (err) {
+        showAlert('Erro ao processar pagamento simulado.', 'error');
+      } finally {
+        setPaying(false);
+      }
+    }, 1800);
   };
 
   const loading = false;
@@ -259,6 +324,360 @@ export const AdminDashboardValida: React.FC = () => {
           </p>
         </button>
       </div>
+
+      {/* Espaço do Lojista Anunciante & Patrocínios */}
+      <div id="merchant_advertiser_section" className="glass rounded-3xl border-amber-300/40 p-6 shadow-xs relative overflow-hidden bg-gradient-to-tr from-amber-500/5 via-transparent to-transparent">
+        <div className="absolute right-0 top-0 w-32 h-32 bg-amber-400/5 rounded-full blur-2xl pointer-events-none" />
+        
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-gray-100 pb-5">
+          <div className="space-y-1">
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold font-mono tracking-widest uppercase bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+              Sua Vitrine em Destaque
+            </span>
+            <h3 className="text-lg font-black text-slate-800">Canais de Anúncio & Patrocínio</h3>
+            <p className="text-xs text-gray-500 leading-relaxed font-semibold max-w-2xl">
+              Destaque sua loja na página inicial do ValidaMais! Exiba slogans de impacto e atraia novos compradores da vizinhança para liquidar suas gôndolas muito mais rápido.
+            </p>
+          </div>
+
+          {user?.destaqueAtivo && (
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+              <div className="w-2.5 h-2.5 bg-emerald-550 bg-emerald-500 rounded-full animate-ping" />
+              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wide font-mono">
+                Destaque {user.destaquePlano === 'ouro' ? 'Ouro 🌟' : 'Bronze 🥉'} Ativo
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Dynamic Display depending on active subscription */}
+        {user?.destaqueAtivo ? (
+          <div className="mt-5 space-y-4">
+            <div className="bg-amber-500/5 rounded-2xl p-4 border border-amber-200/50 space-y-3">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <span className="text-[10px] font-bold text-amber-800 font-mono uppercase tracking-wider flex items-center gap-1">
+                  <Trophy className="w-4 h-4 text-amber-500" /> Suas Configurações de Campanha Ativa
+                </span>
+                <span className="text-[10px] text-gray-400 font-medium">Assinatura mensal simulada renovando em 30 dias</span>
+              </div>
+
+              {!editSlogan ? (
+                <div className="space-y-2">
+                  <div className="text-slate-700 text-xs font-semibold">
+                    Frase atual exibida nos banners da Home:
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-gray-100 text-slate-800 text-sm italic font-medium">
+                    "{user.destaqueMensagem || 'Os melhores lotes da região!'}"
+                  </div>
+                  <div className="flex gap-2.5 pt-1">
+                    <button
+                      onClick={() => {
+                        setSloganInput(user.destaqueMensagem || '');
+                        setEditSlogan(true);
+                      }}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-650 hover:shadow-2xs text-white text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center gap-1"
+                    >
+                      Editar Frase
+                    </button>
+                    <button
+                      onClick={handleCancelSubscription}
+                      className="px-4 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-xl cursor-pointer transition-all"
+                    >
+                      Cancelar Destaque
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-800 block">Nova Frase de Impacto:</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-400 focus:outline-hidden font-medium"
+                      placeholder="Ex: Padaria Bella Vista: Laticínios finos pela metade do preço hoje!"
+                      value={sloganInput}
+                      onChange={(e) => setSloganInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUpdateSlogan}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl cursor-pointer transition-all"
+                    >
+                      Salvar Frase
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditSlogan(false)}
+                      className="px-4 py-2 border border-gray-200 text-gray-550 text-gray-500 hover:bg-gray-50 text-xs font-bold rounded-xl cursor-pointer transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-6">
+            <p className="text-xs text-gray-400 font-semibold uppercase font-mono tracking-wider">Planos de Exibição Mensais Disponíveis:</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              
+              {/* Gold Sponsor Card */}
+              <div className="bg-gradient-to-br from-stone-900 to-amber-950 text-white rounded-2xl p-5 border border-amber-500/20 relative overflow-hidden flex flex-col justify-between shadow-xs">
+                <div className="space-y-3">
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold font-mono tracking-widest uppercase bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-md">
+                    RECOMENDADO ★
+                  </span>
+                  <div className="space-y-1">
+                    <h4 className="text-base font-black text-amber-300 font-sans">Patrocinador Ouro ValidaMais</h4>
+                    <p className="text-xs text-stone-300 leading-relaxed font-sans font-medium">
+                      Espaço premium de destaque rotativo no topo do feed da Home principal. Edição de slogan comercial livre em tempo real para atrair cliques imediatos para seus lotes promocionais.
+                    </p>
+                  </div>
+                  <ul className="space-y-1.5 text-[11px] text-stone-200 font-medium">
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-amber-400" /> Banner gigante de cabeçalho na Home</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-amber-400" /> Slogan personalizado livre</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-amber-400" /> Selo "Destaque" ao lado do nome da loja</li>
+                  </ul>
+                </div>
+                
+                <div className="pt-5 flex items-center justify-between border-t border-white/5 mt-4">
+                  <div>
+                    <span className="block text-[9px] text-stone-400 font-mono">ASSINATURA BRUTA</span>
+                    <span className="text-lg font-black text-amber-400 font-mono">R$ 49,90<span className="text-[10px] text-stone-400 font-sans font-normal">/mês</span></span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCheckoutPlan('ouro');
+                      setSloganInput('');
+                    }}
+                    className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-stone-900 font-black text-xs uppercase font-mono rounded-xl cursor-pointer hover:shadow-xs transition-all"
+                  >
+                    Assinar Ouro
+                  </button>
+                </div>
+              </div>
+
+              {/* Bronze Sponsor Card */}
+              <div className="bg-white rounded-2xl p-5 border border-gray-200 relative overflow-hidden flex flex-col justify-between shadow-xs">
+                <div className="space-y-3">
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold font-mono tracking-widest uppercase bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md">
+                    DESTAQUE LATERAL
+                  </span>
+                  <div className="space-y-1 text-slate-800">
+                    <h4 className="text-base font-black text-slate-800">Parceiro Verde Bronze</h4>
+                    <p className="text-xs text-gray-500 leading-relaxed font-sans font-medium">
+                      Exibição lateral secundária para impulsionar suas campanhas com um custo viável para pequenos comércios e cooperativas locais.
+                    </p>
+                  </div>
+                  <ul className="space-y-1.5 text-[11px] text-slate-600 font-medium">
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-600 font-bold" /> Banner médio de rodapé ou lateral</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-600 font-bold" /> Link de encaminhamento rápido</li>
+                    <li className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-600 font-bold" /> Ideal para sacolas verdes de sobras</li>
+                  </ul>
+                </div>
+                
+                <div className="pt-5 flex items-center justify-between border-t border-gray-100 mt-4">
+                  <div>
+                    <span className="block text-[9px] text-gray-400 font-mono">ASSINATURA BRUTA</span>
+                    <span className="text-lg font-black text-slate-800 font-mono">R$ 19,90<span className="text-[10px] text-gray-400 font-sans font-normal">/mês</span></span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCheckoutPlan('bronze');
+                      setSloganInput('');
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs uppercase font-mono rounded-xl cursor-pointer hover:shadow-xs transition-all"
+                  >
+                    Assinar Bronze
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Simulated Advertiser Checkout Dialog */}
+      {checkoutPlan && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-amber-100 text-slate-800 space-y-6 relative animate-scale-up">
+            
+            <button
+              type="button"
+              onClick={() => {
+                setCheckoutPlan(null);
+                setCheckoutMethod(null);
+              }}
+              className="absolute right-4 top-4 text-gray-400 hover:text-slate-700 font-bold text-xs p-1 cursor-pointer font-mono"
+            >
+              ✖
+            </button>
+
+            <div className="text-center space-y-2">
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold font-mono tracking-widest uppercase bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200">
+                Checkout de Patrocínio e Exibição de Ativo
+              </span>
+              <h3 className="text-xl font-black text-slate-800">
+                Ativar Plano {checkoutPlan === 'ouro' ? 'Ouro 🌟' : 'Bronze 🥉'}
+              </h3>
+              <p className="text-xs text-gray-500">
+                Defina sua frase de efeito promocional exibida aos usuários e realize o pagamento mensal simulado.
+              </p>
+            </div>
+
+            {/* Custom campaign slogan entry */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-800 block">Escreva sua Frase Comercial:</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-400 focus:outline-hidden font-medium"
+                  placeholder={checkoutPlan === 'ouro' ? 'Ex: Bolos artesanais e croissaints fresquinhos a preço de custo hoje!' : 'Ex: Legumes selecionados para sopa com 50% de desconto!'}
+                  value={sloganInput}
+                  onChange={(e) => setSloganInput(e.target.value)}
+                />
+                <span className="text-[10px] text-gray-400 font-medium block">Essa frase será exibida no rodapé ou no banner da Home imediatamente.</span>
+              </div>
+
+              {/* Payment Methods */}
+              {!checkoutMethod ? (
+                <div className="space-y-3 pt-2">
+                  <label className="text-xs font-bold text-slate-800 block text-center">Forma de Pagamento Simulada:</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setCheckoutMethod('pix')}
+                      className="p-4 border border-slate-200 rounded-2xl hover:border-amber-400 hover:bg-slate-50 text-center flex flex-col items-center gap-2 group cursor-pointer transition-all"
+                    >
+                      <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-bold font-mono text-xs group-hover:scale-105 transition-transform">
+                        PIX
+                      </div>
+                      <span className="text-xs font-extrabold text-slate-700">Pague com PIX</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCheckoutMethod('cartao')}
+                      className="p-4 border border-slate-200 rounded-2xl hover:border-amber-400 hover:bg-slate-50 text-center flex flex-col items-center gap-2 group cursor-pointer transition-all"
+                    >
+                      <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <CreditCard className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-extrabold text-slate-700">Cartão de Crédito</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-t border-dashed border-gray-150 pt-4 space-y-4">
+                  {checkoutMethod === 'pix' ? (
+                    <div className="space-y-3.5 text-center">
+                      <div className="bg-slate-50 border p-3.5 rounded-2xl space-y-2 max-w-xs mx-auto">
+                        {/* Fake QR code representation in text */}
+                        <div className="w-24 h-24 bg-stone-850 bg-stone-900 flex items-center justify-center mx-auto text-[8px] font-mono p-2 rounded-lg text-emerald-300 leading-tight">
+                          [ MOCK QR CODE VALIDA MAIS ]
+                        </div>
+                        <span className="text-[10px] text-gray-500 font-semibold block">Escaneie pelo App do seu Banco</span>
+                      </div>
+                      
+                      <div className="space-y-1.5 max-w-xs mx-auto">
+                        <input
+                          type="text"
+                          readOnly
+                          className="w-full text-center px-3 py-1.5 bg-gray-100 border rounded-lg text-[9px] font-mono text-gray-600"
+                          value="validamais_pix_recebivel_patrocinio_0028492048"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText("validamais_pix_recebivel_patrocinio_0028492048");
+                            setPixCopied(true);
+                            showAlert('Copiado para a área de transferência', 'success');
+                          }}
+                          className="text-[10px] text-amber-600 hover:text-amber-700 font-extrabold"
+                        >
+                          {pixCopied ? '✓ Copiado!' : 'Copiar Código PIX Copia e Cola'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <span className="text-xs font-bold text-slate-800 block">Dados do Cartão (Simulação Segura):</span>
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border rounded-xl text-xs"
+                          placeholder="Número do Cartão (4444 4444 4444 4444)"
+                          value={cardNumber}
+                          onChange={(e) => setCardNumber(e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border rounded-xl text-xs"
+                          placeholder="Nome do Titular"
+                          value={cardName}
+                          onChange={(e) => setCardName(e.target.value)}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            className="px-3 py-2 border rounded-xl text-xs"
+                            placeholder="Validade (MM/AA)"
+                            value={cardExpiry}
+                            onChange={(e) => setCardExpiry(e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            className="px-3 py-2 border rounded-xl text-xs"
+                            placeholder="CVV"
+                            value={cardCVV}
+                            onChange={(e) => setCardCVV(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between font-mono text-xs border-y border-dashed py-2">
+                    <span className="font-bold text-slate-400">Total a Pagar</span>
+                    <span className="font-black text-amber-600 text-sm">
+                      {checkoutPlan === 'ouro' ? 'R$ 49,90' : 'R$ 19,90'}
+                    </span>
+                  </div>
+
+                  {paying ? (
+                    <div className="flex items-center justify-center gap-2 text-amber-600 font-mono text-xs font-bold py-2">
+                      <span className="animate-spin text-lg">⏳</span> Validando transação instantânea...
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleProcessAdminPayment}
+                        className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-xs tracking-wider uppercase font-mono rounded-xl cursor-pointer"
+                      >
+                        Confirmar Pagamento Simulado
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCheckoutMethod(null)}
+                        className="py-3 px-4 border text-gray-550 hover:bg-slate-50 text-xs font-bold rounded-xl cursor-pointer font-mono"
+                      >
+                        Voltar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Database control panel */}
       <div className="glass rounded-3xl border-red-200/60 p-6 bg-red-50/10 mt-2 border">

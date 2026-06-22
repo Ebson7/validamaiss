@@ -18,6 +18,10 @@ export interface Usuario {
   role: UserRole;
   senha?: string;
   criadoEm: any; // Firestore Timestamp
+  destaquePlano?: string;       // e.g. 'bronze' | 'ouro' | 'clube'
+  destaqueAtivo?: boolean;
+  destaqueMensagem?: string;
+  destaqueBannerUrl?: string;
 }
 
 export interface Produto {

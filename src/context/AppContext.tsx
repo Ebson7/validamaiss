@@ -97,6 +97,7 @@ interface AppContextType {
   favoritosLojasLoading: boolean;
   isLojaFavoritada: (nomeLoja: string) => boolean;
   toggleFavoritoLoja: (nomeLoja: string) => Promise<void>;
+  updateUserProfile: (dados: Partial<Usuario>) => Promise<void>;
 }
 
 const DEFAULT_USERS: Usuario[] = [
@@ -1345,6 +1346,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateUserProfile = async (dados: Partial<Usuario>): Promise<void> => {
+    if (!user) return;
+    const updatedUser = { ...user, ...dados };
+    setUser(updatedUser);
+    localStorage.setItem('validamais_currentUser', JSON.stringify(updatedUser));
+
+    try {
+      const docRef = doc(db, 'usuarios', user.uid);
+      await setDoc(docRef, updatedUser, { merge: true });
+    } catch (err) {
+      console.warn("Could not merge profile document to Firestore:", err);
+    }
+  };
+
   const testSendNotificationPreview = async (produto: Produto): Promise<void> => {
     if (!user) {
       showAlert('É necessário estar logado para simular notificações.', 'warning');
@@ -1418,7 +1433,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         favoritosLojas,
         favoritosLojasLoading,
         isLojaFavoritada,
-        toggleFavoritoLoja
+        toggleFavoritoLoja,
+        updateUserProfile
       }}
     >
       {children}

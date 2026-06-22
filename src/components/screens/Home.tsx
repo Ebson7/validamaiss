@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Produto } from '../../types';
 import { ProdutoCard } from '../ProdutoCard';
+import { AdvertiserBanners } from '../AdvertiserBanners';
 import { Calendar, Store, Percent, ShieldAlert, Sparkles, AlertCircle, ShoppingBag, Leaf, ChevronRight, Info } from 'lucide-react';
 
 export const HomeValida: React.FC = () => {
@@ -128,6 +129,9 @@ export const HomeValida: React.FC = () => {
           </button>
         </section>
       )}
+
+      {/* Advertiser/Sponsors Banners Section */}
+      <AdvertiserBanners />
 
       {/* Main Section Highlights */}
       <section className="space-y-6">
