@@ -8,10 +8,19 @@ import { useApp } from '../../context/AppContext';
 import { Produto } from '../../types';
 import { FiltrosProdutos } from '../FiltrosProdutos';
 import { ProdutoCard } from '../ProdutoCard';
-import { AlertCircle, SlidersHorizontal, Loader2, Heart, Search } from 'lucide-react';
+import { AlertCircle, SlidersHorizontal, Loader2, Heart, Search, MapPin } from 'lucide-react';
 
 export const ProdutosValida: React.FC = () => {
-  const { produtos, categorias, produtosLoading: loading, user, isFavoritado } = useApp();
+  const { 
+    produtos, 
+    categorias, 
+    produtosLoading: loading, 
+    user, 
+    isFavoritado, 
+    favoritosLojas, 
+    toggleFavoritoLoja, 
+    avaliacoes 
+  } = useApp();
 
   // States of the filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -21,6 +30,7 @@ export const ProdutosValida: React.FC = () => {
   const [selectedStore, setSelectedStore] = useState('');
   const [sortBy, setSortBy] = useState('URGENTE_PRIMEIRO');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  const [favoritesActiveTab, setFavoritesActiveTab] = useState<'ITEMS' | 'STORES'>('ITEMS');
 
   // Derive unique categories and stores for filter dropdowns
   const availableCategories = Array.from(new Set(produtos.map(p => p.categoria))).filter(Boolean);
@@ -82,6 +92,10 @@ export const ProdutosValida: React.FC = () => {
     return 0;
   });
 
+  const getProductsForStore = (storeName: string) => {
+    return produtos.filter(p => p.nomeLoja.toLowerCase() === storeName.toLowerCase());
+  };
+
   return (
     <div id="produtos_catalog_screen" className="space-y-6">
       {/* Page Title */}
@@ -93,18 +107,54 @@ export const ProdutosValida: React.FC = () => {
         {user && user.role === 'user' && (
           <button
             id="toggle_favorites_only_btn"
-            onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
+            onClick={() => {
+              const newVal = !showOnlyFavorites;
+              setShowOnlyFavorites(newVal);
+              if (!newVal) {
+                setFavoritesActiveTab('ITEMS');
+              }
+            }}
             className={`self-start md:self-center px-4.5 py-2.5 rounded-2xl border text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs ${
               showOnlyFavorites
                 ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
                 : 'bg-white border-gray-200/65 text-gray-500 hover:bg-rose-50 hover:border-rose-150 hover:text-rose-605'
             }`}
           >
-            <Heart className={`w-4 h-4 ${showOnlyFavorites ? 'fill-current' : ''}`} />
+            <Heart className={`w-4 h-4 transition-transform ${showOnlyFavorites ? 'text-rose-600 fill-rose-600 scale-110' : 'text-gray-400'}`} />
             {showOnlyFavorites ? 'Mostrar Todos os Lotes' : 'Ver Meus Favoritos'}
           </button>
         )}
       </div>
+
+      {/* Sub-tab selection bar when showOnlyFavorites is true */}
+      {showOnlyFavorites && (
+        <div id="favorites_tabs_row" className="flex border-b border-gray-200 gap-6 mt-2">
+          <button
+            type="button"
+            onClick={() => setFavoritesActiveTab('ITEMS')}
+            className={`pb-3.5 text-xs font-black transition-all relative uppercase font-mono cursor-pointer flex items-center gap-1.5 ${
+              favoritesActiveTab === 'ITEMS' ? 'text-rose-600 font-extrabold' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            Itens Favoritos ({sortedProducts.length})
+            {favoritesActiveTab === 'ITEMS' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500 rounded-full" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFavoritesActiveTab('STORES')}
+            className={`pb-3.5 text-xs font-black transition-all relative uppercase font-mono cursor-pointer flex items-center gap-1.5 ${
+              favoritesActiveTab === 'STORES' ? 'text-rose-600 font-extrabold' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            Lojas Favoritas ({favoritosLojas.length})
+            {favoritesActiveTab === 'STORES' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500 rounded-full" />
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Prominent Discovery Search Bar */}
       <div className="bg-emerald-50/45 border border-emerald-100 rounded-3xl p-5 md:p-6 shadow-3xs flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -171,6 +221,120 @@ export const ProdutosValida: React.FC = () => {
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
           <span className="text-sm font-semibold text-gray-500 font-mono">Processando estoque...</span>
+        </div>
+      ) : showOnlyFavorites && favoritesActiveTab === 'STORES' ? (
+        // RENDER LOJAS FAVORITAS
+        favoritosLojas.length > 0 ? (
+          <div id="favorites_stores_grid" className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+            {favoritosLojas.map((favStore) => {
+              const activeLots = getProductsForStore(favStore.nomeLoja);
+              const storeAddress = activeLots[0]?.endereco || 'Endereço indisponível';
+              
+              // Get store review ratings
+              const avaliacoesLoja = (avaliacoes || []).filter(
+                a => a.nomeLoja.toLowerCase().trim() === favStore.nomeLoja.toLowerCase().trim()
+              );
+              const mediaAvaliacao = avaliacoesLoja.length > 0
+                ? (avaliacoesLoja.reduce((sum, a) => sum + a.estrelas, 0) / avaliacoesLoja.length).toFixed(1)
+                : null;
+
+              return (
+                <div
+                  key={favStore.id || favStore.nomeLoja}
+                  className="glass rounded-3xl border-white/50 p-5 shadow-xs flex flex-col justify-between hover:shadow-md transition-all group relative overflow-hidden"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 font-mono text-base font-black uppercase text-center shadow-3xs">
+                          {favStore.nomeLoja.charAt(0)}
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-gray-900 group-hover:text-emerald-700 transition-colors text-base">
+                            {favStore.nomeLoja}
+                          </h3>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">
+                            {mediaAvaliacao ? (
+                              <span className="text-amber-600 font-bold font-mono">★ {mediaAvaliacao} ({avaliacoesLoja.length} avaliações)</span>
+                            ) : (
+                              <span className="text-gray-400 font-mono">Novo parceiro</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => toggleFavoritoLoja(favStore.nomeLoja)}
+                        className="p-2 rounded-2xl border bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100 transition-all cursor-pointer shadow-3xs"
+                        title="Remover das Lojas Favoritas"
+                      >
+                        <Heart className="w-4 h-4 fill-current animate-pulse-once" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-gray-400 text-xs">
+                      <MapPin className="w-3.5 h-3.5 shrink-0 text-gray-300" />
+                      <span className="truncate max-w-xs">{storeAddress}</span>
+                    </div>
+
+                    <div className="text-xs text-gray-500 font-semibold font-mono bg-emerald-50/50 rounded-xl px-3 py-2 border border-emerald-100/30">
+                      {activeLots.length > 0 ? (
+                        <span className="text-emerald-700">{activeLots.length} lotes promocionais ativos de alimentos</span>
+                      ) : (
+                        <span className="text-gray-400">Sem lotes promocionais cadastrados no momento</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {activeLots.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStore(favStore.nomeLoja);
+                        setShowOnlyFavorites(false);
+                      }}
+                      className="w-full mt-4 py-2.5 rounded-2xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 font-mono uppercase tracking-wider text-center cursor-pointer shadow-2xs hover:shadow-md transition-all"
+                    >
+                      Ver Lotes Deste Estabelecimento
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="glass rounded-3xl border-white/50 py-16 text-center max-w-lg mx-auto p-6 space-y-3">
+            <div className="w-12 h-12 bg-white/40 rounded-2xl flex items-center justify-center text-gray-400 mx-auto border border-white/50">
+              <Heart className="w-6 h-6 text-rose-450 text-rose-400" />
+            </div>
+            <h3 className="text-base font-extrabold text-gray-800 font-mono uppercase">Nenhum estabelecimento favoritado ainda</h3>
+            <p className="text-xs text-gray-500 leading-relaxed font-medium">
+              Favorite estabelecimentos/lojas parceiras clicando no ícone de coração ao lado de seu identificador em qualquer produto catalogado das lojas.
+            </p>
+            <button
+              onClick={() => setShowOnlyFavorites(false)}
+              className="text-xs font-bold text-emerald-600 hover:text-emerald-700 font-mono uppercase tracking-wider cursor-pointer mt-3"
+            >
+              Navegar no Catálogo de Lotes
+            </button>
+          </div>
+        )
+      ) : showOnlyFavorites && favoritesActiveTab === 'ITEMS' && sortedProducts.length === 0 ? (
+        <div className="glass rounded-3xl border-white/50 py-16 text-center max-w-lg mx-auto p-6 space-y-3">
+          <div className="w-12 h-12 bg-white/40 rounded-2xl flex items-center justify-center text-gray-400 mx-auto border border-white/50">
+            <Heart className="w-6 h-6 text-rose-500 fill-rose-500 animate-pulse" />
+          </div>
+          <h3 className="text-base font-extrabold text-gray-800 font-mono uppercase">Nenhum lote favoritado ainda</h3>
+          <p className="text-xs text-gray-500 leading-relaxed font-medium">
+            Você não salvou nenhum lote de alimento promocional ainda. Clique no ícone de coração nos produtos catalogados para guardá-los nesta seção para acompanhamento rápido.
+          </p>
+          <button
+            onClick={() => setShowOnlyFavorites(false)}
+            className="text-xs font-bold text-emerald-600 hover:text-emerald-700 font-mono uppercase tracking-wider cursor-pointer mt-3"
+          >
+            Navegar no Catálogo
+          </button>
         </div>
       ) : sortedProducts.length > 0 ? (
         <div id="products_grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -16,6 +16,7 @@ export interface Usuario {
   email: string;
   nome: string;
   role: UserRole;
+  telefone?: string;
   senha?: string;
   criadoEm: any; // Firestore Timestamp
 }
@@ -89,13 +90,6 @@ export interface Favorito {
   id?: string;
   usuarioId: string;
   produtoId: string;
-  criadoEm: any; // ISO Date string or Firestore Timestamp
-}
-
-export interface FavoritoLoja {
-  id?: string;
-  usuarioId: string;
-  nomeLoja: string;
   criadoEm: any; // ISO Date string or Firestore Timestamp
 }
 

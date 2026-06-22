@@ -148,22 +148,6 @@
         "produtoId",
         "criadoEm"
       ]
-    },
-    "FavoritoLoja": {
-      "title": "FavoritoLoja",
-      "description": "Nome da loja favoritada pelo usuário para acompanhamento",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "usuarioId": { "type": "string" },
-        "nomeLoja": { "type": "string" },
-        "criadoEm": { "type": "object" }
-      },
-      "required": [
-        "usuarioId",
-        "nomeLoja",
-        "criadoEm"
-      ]
     }
   },
   "firestore": {
@@ -190,10 +174,6 @@
     "favoritos/{favoritoId}": {
       "schema": "Favorito",
       "description": "Lote/produto favoritado pelo usuário consumidor"
-    },
-    "favoritos_lojas/{favoritoLojaId}": {
-      "schema": "FavoritoLoja",
-      "description": "Loja/estabelecimento favoritado pelo usuário consumidor"
     }
   }
 }
