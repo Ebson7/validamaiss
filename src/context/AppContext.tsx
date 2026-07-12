@@ -1112,64 +1112,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const clearAllDatabaseUsers = async (): Promise<void> => {
     setLoading(true);
     try {
-      // 1. Reset LocalStorage
-      localStorage.setItem('validamais_usuarios', JSON.stringify(DEFAULT_USERS));
-      localStorage.setItem('validamais_reservas', JSON.stringify([]));
+      // 1. Wipe all localStorage app data
+      localStorage.removeItem('validamais_usuarios');
+      localStorage.removeItem('validamais_reservas');
+      localStorage.removeItem('validamais_currentUser');
 
-      // 2. Clear ALL user documents from Firestore *except* default models
-      const defaultUids = [
-        'sim_cliente_validamais_com',
-        'sim_admin_validamais_com',
-        'mock_userId_cliente1',
-        'mock_userId_admin1'
-      ];
-
+      // 2. Delete ALL users from Firestore (no exceptions)
       const usuariosSnap = await getDocs(collection(db, 'usuarios'));
-      const userDeletes: Promise<void>[] = [];
-      usuariosSnap.forEach((docSnap) => {
-        if (!defaultUids.includes(docSnap.id)) {
-          userDeletes.push(deleteDoc(doc(db, 'usuarios', docSnap.id)));
-        }
-      });
-      if (userDeletes.length > 0) {
-        await Promise.all(userDeletes);
+      if (!usuariosSnap.empty) {
+        await Promise.all(usuariosSnap.docs.map(d => deleteDoc(doc(db, 'usuarios', d.id))));
       }
 
       // 3. Delete ALL reservations from Firestore
       const reservasSnap = await getDocs(collection(db, 'reservas'));
-      const reservaDeletes: Promise<void>[] = [];
-      reservasSnap.forEach((docSnap) => {
-        reservaDeletes.push(deleteDoc(doc(db, 'reservas', docSnap.id)));
-      });
-      if (reservaDeletes.length > 0) {
-        await Promise.all(reservaDeletes);
+      if (!reservasSnap.empty) {
+        await Promise.all(reservasSnap.docs.map(d => deleteDoc(doc(db, 'reservas', d.id))));
       }
 
-      // 4. Delete ALL products and seed defaults
+      // 4. Delete ALL products from Firestore (leave catalog empty for fresh start)
       const produtosSnap = await getDocs(collection(db, 'produtos'));
-      const productDeletes: Promise<void>[] = [];
-      produtosSnap.forEach((docSnap) => {
-        productDeletes.push(deleteDoc(doc(db, 'produtos', docSnap.id)));
-      });
-      if (productDeletes.length > 0) {
-        await Promise.all(productDeletes);
+      if (!produtosSnap.empty) {
+        await Promise.all(produtosSnap.docs.map(d => deleteDoc(doc(db, 'produtos', d.id))));
       }
 
-      const creatorId = user?.uid || 'mock_userId_admin1';
-      await seedDefaultProducts(creatorId);
-
-      // 5. Check if we should logout
-      if (user && !defaultUids.includes(user.uid)) {
-        setUser(null);
-        localStorage.removeItem('validamais_currentUser');
-        navigateTo('home');
-        showAlert('Todos os dados foram reiniciados do zero! Faça login com uma conta padrão.', 'success');
-      } else {
-        showAlert('Base de dados limpa com sucesso! Somente dados de modelo/padrão mantidos.', 'success');
-      }
+      // 5. Log out current session
+      setUser(null);
+      navigateTo('home');
+      showAlert('Base de dados completamente zerada! Cadastre-se para começar do zero.', 'success');
     } catch (err: any) {
       console.error("Erro ao redefinir base de dados:", err);
-      showAlert('Não foi possível realizar a limpeza remota completa.', 'error');
+      showAlert('Não foi possível realizar a limpeza completa. Tente novamente.', 'error');
     } finally {
       setLoading(false);
     }

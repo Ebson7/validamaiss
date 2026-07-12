@@ -909,9 +909,8 @@ export const AdminDashboardValida: React.FC = () => {
           Manutenção do Sistema (Limpeza & Reinicialização)
         </h3>
         <p className="text-xs text-gray-500 mt-2 max-w-2xl leading-relaxed">
-          Para realizar testes limpos a partir do zero, use a ferramenta de reinicialização abaixo. 
-          Ela removerá todas as contas de usuário adicionais da base remota, cancelará e apagará todas as reservas experimentais, 
-          e restabelecerá o catálogo promovido original com as contas de modelo padrão (<span className="font-semibold text-amber-700">admin@validamais.com</span> e <span className="font-semibold text-emerald-700">cliente@validamais.com</span>).
+          Apaga <strong className="text-red-700">completamente</strong> todos os usuários cadastrados, reservas e produtos do Firestore e do armazenamento local.
+          Após a limpeza, a sessão é encerrada e o catálogo fica vazio — pronto para cadastros reais do zero.
         </p>
         <div className="mt-4">
           <button
