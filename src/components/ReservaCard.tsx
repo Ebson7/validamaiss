@@ -6,7 +6,7 @@
 import React, { useState, useMemo } from 'react';
 import qrcode from 'qrcode-generator';
 import { Reserva } from '../types';
-import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, DollarSign, Star, CheckCircle2, Ticket, ShieldCheck, ShieldAlert, Copy, Check } from 'lucide-react';
+import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, Phone, DollarSign, Star, CheckCircle2, Ticket, ShieldCheck, ShieldAlert, Copy, Check, ExternalLink } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface ReservaCardProps {
@@ -15,13 +15,35 @@ interface ReservaCardProps {
   onStatusUpdate: (reservaId: string, newStatus: 'retirado' | 'cancelado') => Promise<void>;
 }
 
+// Deterministic fallback pickup code for reservations created before the feature
+// existed (no codigoRetirada stored). Both the customer's card and the lojista's
+// validation derive the SAME code from the reservation id, so validation still works.
+const PICKUP_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function derivePickupCode(seed: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += PICKUP_ALPHABET[h % PICKUP_ALPHABET.length];
+    h = Math.floor(h / PICKUP_ALPHABET.length) + (seed.charCodeAt(i % seed.length) || 7) * (i + 13);
+    h = h >>> 0;
+  }
+  return `VM-${code}`;
+}
+
 export const ReservaCard: React.FC<ReservaCardProps> = ({
   reserva,
   isAdminView,
   onStatusUpdate
 }) => {
   const [updating, setUpdating] = useState(false);
-  const { avaliacoes, addAvaliacaoLoja } = useApp();
+  const { avaliacoes, addAvaliacaoLoja, navigateTo } = useApp();
+
+  // Always have a pickup code to show/validate — stored one, or a stable fallback.
+  const pickupCode = reserva.codigoRetirada || derivePickupCode(reserva.id || 'RES');
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -37,9 +59,8 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
     value.toUpperCase().replace(/\s+/g, '').replace(/^VM-?/, '');
 
   const handleCopyCode = async () => {
-    if (!reserva.codigoRetirada) return;
     try {
-      await navigator.clipboard.writeText(reserva.codigoRetirada);
+      await navigator.clipboard.writeText(pickupCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -48,7 +69,7 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
   };
 
   const handleValidateAndConfirm = async () => {
-    if (normalizeCode(codeInput) !== normalizeCode(reserva.codigoRetirada || '')) {
+    if (normalizeCode(codeInput) !== normalizeCode(pickupCode)) {
       setCodeError('Código inválido. Confira o código apresentado pelo cliente.');
       return;
     }
@@ -69,16 +90,15 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
 
   // QR Code (SVG) encoding the pickup code — the lojista scans it at the counter
   const qrSvg = useMemo(() => {
-    if (!reserva.codigoRetirada) return '';
     try {
       const qr = qrcode(0, 'M');
-      qr.addData(reserva.codigoRetirada);
+      qr.addData(pickupCode);
       qr.make();
       return qr.createSvgTag({ cellSize: 4, margin: 0 });
     } catch {
       return '';
     }
-  }, [reserva.codigoRetirada]);
+  }, [pickupCode]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,7 +263,28 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
               <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
               <span className="font-mono">{getFormattedDate(reserva.criadoEm)}</span>
             </div>
+
+            {/* Client phone — shown to the lojista for contact */}
+            {isAdminView && reserva.usuarioTelefone && (
+              <div className="flex items-center gap-1.5 text-gray-700">
+                <Phone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <a href={`tel:${reserva.usuarioTelefone.replace(/\D/g, '')}`} className="font-semibold hover:text-amber-600 transition-colors">
+                  {reserva.usuarioTelefone}
+                </a>
+              </div>
+            )}
           </div>
+
+          {/* Ver detalhes do produto — customer only */}
+          {!isAdminView && (
+            <button
+              onClick={() => navigateTo('produto-detalhe', reserva.produtoId)}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg cursor-pointer transition-all active:scale-95 mt-0.5"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Ver detalhes do produto
+            </button>
+          )}
 
           {/* Pricing tag */}
           <div className="flex items-center gap-1">
@@ -267,14 +308,9 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
                 <>
                   <button
                     onClick={() => {
-                      if (reserva.codigoRetirada) {
-                        setCodeError('');
-                        setCodeInput('');
-                        setCodePromptOpen((v) => !v);
-                      } else {
-                        // Legacy reservation without a pickup code — fall back to plain confirm
-                        handleUpdate('retirado');
-                      }
+                      setCodeError('');
+                      setCodeInput('');
+                      setCodePromptOpen((v) => !v);
                     }}
                     disabled={updating}
                     className="bg-emerald-600 hover:bg-emerald-700 font-sans text-xs font-bold text-white px-3.5 py-1.5 rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all flex items-center gap-1 flex-1 sm:flex-initial disabled:opacity-50"
@@ -326,7 +362,7 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
       </div>
 
       {/* Pickup code + QR — customer presents this at the store counter */}
-      {!isAdminView && reserva.status === 'pendente' && reserva.codigoRetirada && (
+      {!isAdminView && reserva.status === 'pendente' && (
         <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 sm:ml-6 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4">
           {/* Details + code + copy */}
           <div className="flex items-start gap-3 min-w-0 order-2 sm:order-1 w-full sm:w-auto">
@@ -338,7 +374,7 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
                 Código de Retirada
               </div>
               <div className="text-xl font-black text-gray-900 font-mono tracking-widest leading-tight">
-                {reserva.codigoRetirada}
+                {pickupCode}
               </div>
               <div className="text-[10px] text-gray-500 font-medium mt-0.5 max-w-[17rem]">
                 Mostre o QR Code ou informe este código no balcão da loja para validar sua reserva.
@@ -358,7 +394,7 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
             <div className="order-1 sm:order-2 shrink-0 flex flex-col items-center gap-1">
               <div
                 className="bg-white p-2 rounded-xl border border-emerald-200 shadow-xs leading-none"
-                aria-label={`QR Code do código de retirada ${reserva.codigoRetirada}`}
+                aria-label={`QR Code do código de retirada ${pickupCode}`}
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
               <span className="text-[9px] font-bold text-emerald-700/70 font-mono uppercase tracking-wider">

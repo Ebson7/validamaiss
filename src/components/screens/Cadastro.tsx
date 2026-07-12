@@ -3,14 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
 import {
   Mail, Lock, User, UserPlus, Eye, EyeOff,
-  CheckCircle, RefreshCw, ArrowLeft, AlertCircle,
+  CheckCircle, AlertCircle, Phone,
   ShieldCheck, Leaf, Store, ShoppingBag, Building2
 } from 'lucide-react';
+
+// Formats a Brazilian phone as (XX) XXXXX-XXXX
+function maskPhone(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return d.replace(/^(\d{0,2})/, '($1');
+  if (d.length <= 6) return d.replace(/^(\d{2})(\d{0,4})/, '($1) $2');
+  if (d.length <= 10) return d.replace(/^(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+  return d.replace(/^(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+}
 
 function maskCNPJ(value: string): string {
   const d = value.replace(/\D/g, '').slice(0, 14);
@@ -63,6 +72,7 @@ export const CadastroValida: React.FC = () => {
 
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -71,15 +81,6 @@ export const CadastroValida: React.FC = () => {
   const [cnpj, setCnpj] = useState('');
   const [cnpjError, setCnpjError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // OTP step
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState('');
-  const [codeDigits, setCodeDigits] = useState(['', '', '', '', '', '']);
-  const [verificationError, setVerificationError] = useState('');
-  const [isResending, setIsResending] = useState(false);
-
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const strength = getPasswordStrength(password);
   const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
@@ -98,6 +99,12 @@ export const CadastroValida: React.FC = () => {
       return;
     }
 
+    const telStripped = telefone.replace(/\D/g, '');
+    if (telStripped.length < 10) {
+      showAlert('Informe um telefone válido com DDD.', 'warning');
+      return;
+    }
+
     if (role === 'lojista') {
       const stripped = cnpj.replace(/\D/g, '');
       if (stripped.length < 14) {
@@ -113,81 +120,12 @@ export const CadastroValida: React.FC = () => {
       setCnpjError('');
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedCode(code);
-    setCodeDigits(['', '', '', '', '', '']);
-    setVerificationError('');
-    setIsVerifying(true);
-    showAlert(`Código de verificação enviado para ${email.trim()}!`, 'success');
-  };
-
-  const handleDigitChange = (val: string, idx: number) => {
-    const clean = val.replace(/[^0-9]/g, '');
-    if (clean === '') {
-      const updated = [...codeDigits];
-      updated[idx] = '';
-      setCodeDigits(updated);
-      return;
-    }
-    if (clean.length > 1) {
-      const pasted = clean.slice(0, 6).split('');
-      const next = [...codeDigits];
-      pasted.forEach((c, i) => { if (i < 6) next[i] = c; });
-      setCodeDigits(next);
-      inputRefs.current[Math.min(pasted.length, 5)]?.focus();
-      return;
-    }
-    const updated = [...codeDigits];
-    updated[idx] = clean;
-    setCodeDigits(updated);
-    setVerificationError('');
-    if (idx < 5) setTimeout(() => inputRefs.current[idx + 1]?.focus(), 10);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
-    if (e.key === 'Backspace') {
-      if (codeDigits[idx] === '' && idx > 0) {
-        const updated = [...codeDigits];
-        updated[idx - 1] = '';
-        setCodeDigits(updated);
-        inputRefs.current[idx - 1]?.focus();
-      } else {
-        const updated = [...codeDigits];
-        updated[idx] = '';
-        setCodeDigits(updated);
-      }
-      setVerificationError('');
-    }
-  };
-
-  const handleResendCode = () => {
-    setIsResending(true);
-    setTimeout(() => {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedCode(code);
-      setCodeDigits(['', '', '', '', '', '']);
-      setVerificationError('');
-      setIsResending(false);
-      showAlert('Novo código reenviado para o seu e-mail!', 'success');
-    }, 800);
-  };
-
-  const handleVerifyAndRegister = async () => {
-    const entered = codeDigits.join('');
-    if (entered.length < 6) {
-      setVerificationError('Preencha todos os 6 dígitos do código.');
-      return;
-    }
-    if (entered !== generatedCode) {
-      setVerificationError('Código incorreto. Confira o e-mail e tente novamente.');
-      return;
-    }
     setLoading(true);
-    setVerificationError('');
     try {
-      await registerUser(email.trim(), password, nome.trim(), role, role === 'lojista' ? cnpj : undefined);
-    } catch (err: any) {
-      setVerificationError(err.message || 'Erro ao finalizar o cadastro.');
+      // registerUser cria a conta no Firebase e dispara o e-mail REAL de verificação (link).
+      await registerUser(email.trim(), password, nome.trim(), role, role === 'lojista' ? cnpj : undefined, telefone);
+    } catch (err) {
+      // erros já tratados via alert no contexto
     } finally {
       setLoading(false);
     }
@@ -208,95 +146,6 @@ export const CadastroValida: React.FC = () => {
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
 
-        {isVerifying ? (
-          /* ── OTP VERIFICATION SCREEN ── */
-          <div className="glass rounded-3xl border-white/50 p-8 shadow-xl space-y-6">
-            <button
-              type="button"
-              onClick={() => setIsVerifying(false)}
-              className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Voltar e editar dados
-            </button>
-
-            {/* Header */}
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
-                <Mail className="w-6 h-6" />
-              </div>
-              <h2 className="text-xl font-black text-gray-900">Verifique seu e-mail</h2>
-              <p className="text-xs text-gray-500 leading-relaxed max-w-xs mx-auto">
-                Enviamos um código de 6 dígitos para{' '}
-                <strong className="text-gray-700 break-all">{email}</strong>.
-                Verifique sua caixa de entrada e spam.
-              </p>
-            </div>
-
-            {/* OTP digits */}
-            <div className="space-y-4">
-              <div className="flex justify-center gap-2.5" id="otp_container">
-                {codeDigits.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    ref={(el) => { inputRefs.current[idx] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleDigitChange(e.target.value, idx)}
-                    onKeyDown={(e) => handleKeyDown(e, idx)}
-                    className="w-11 h-14 text-center text-xl font-black rounded-xl border-2 border-gray-200 bg-white focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 focus:outline-none transition-all"
-                  />
-                ))}
-              </div>
-
-              {verificationError && (
-                <div className="flex items-center gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2.5">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span className="font-semibold">{verificationError}</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleVerifyAndRegister}
-                disabled={loading || codeDigits.join('').length < 6}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <span className="font-mono">Validando...</span>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    Confirmar e Criar Conta
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-between text-xs pt-1">
-                <span className="text-gray-500">Não recebeu?</span>
-                <button
-                  type="button"
-                  onClick={handleResendCode}
-                  disabled={isResending}
-                  className="font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
-                  {isResending ? 'Reenviando...' : 'Reenviar código'}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              O código expira em 10 minutos
-            </div>
-          </div>
-
-        ) : (
-          /* ── REGISTRATION FORM ── */
           <div className="glass rounded-3xl border-white/50 p-8 shadow-xl space-y-6">
 
             {/* Header */}
@@ -368,6 +217,29 @@ export const CadastroValida: React.FC = () => {
                     className="w-full text-sm pl-10 pr-4 py-3 border border-gray-200 bg-gray-50 focus:bg-white rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 transition-all"
                   />
                 </div>
+              </div>
+
+              {/* Telefone / WhatsApp */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-500 font-mono uppercase tracking-wide">
+                  Telefone / WhatsApp <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    required
+                    autoComplete="tel"
+                    placeholder="(11) 90000-0000"
+                    value={telefone}
+                    onChange={(e) => setTelefone(maskPhone(e.target.value))}
+                    className="w-full text-sm pl-10 pr-4 py-3 border border-gray-200 bg-gray-50 focus:bg-white rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 transition-all"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 font-medium">
+                  Usado para contato sobre suas reservas (cliente e loja).
+                </p>
               </div>
 
               {/* CNPJ — lojistas only */}
@@ -579,7 +451,6 @@ export const CadastroValida: React.FC = () => {
               </button>
             </div>
           </div>
-        )}
 
       </div>
     </div>

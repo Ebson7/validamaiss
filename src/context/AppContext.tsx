@@ -7,8 +7,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
   signOut,
+  sendEmailVerification,
   User as FirebaseUser,
   GoogleAuthProvider,
   signInWithPopup
@@ -68,7 +69,7 @@ interface AppContextType {
   navigateTo: (screen: ScreenType, productId?: string | null) => void;
   loginUser: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (selectedRole?: UserRole) => Promise<void>;
-  registerUser: (email: string, password: string, name: string, role: UserRole, cnpj?: string) => Promise<void>;
+  registerUser: (email: string, password: string, name: string, role: UserRole, cnpj?: string, telefone?: string) => Promise<void>;
   logoutUser: () => Promise<void>;
   saveProduct: (formData: any, productId: string | null) => Promise<Produto>;
   deleteProduct: (id: string) => Promise<void>;
@@ -817,17 +818,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Register handler
-  const registerUser = async (email: string, password: string, name: string, role: UserRole, cnpj?: string) => {
+  const registerUser = async (email: string, password: string, name: string, role: UserRole, cnpj?: string, telefone?: string) => {
     setLoading(true);
     const emailLower = email.trim().toLowerCase();
 
     try {
       // 1. Try real Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name, role, undefined, cnpj);
+      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name, role, undefined, cnpj, telefone);
+      // Send a REAL verification e-mail (Firebase-native link). Best-effort: a
+      // failure here must not block the account that was already created.
+      try {
+        await sendEmailVerification(cred.user);
+      } catch (mailErr) {
+        console.warn('sendEmailVerification failed:', mailErr);
+      }
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
-      showAlert('Sua conta foi criada no Firebase e conectada com sucesso!', 'success');
+      showAlert('Conta criada! Enviamos um link de verificação para o seu e-mail — confirme para ativar sua conta.', 'success');
       if (role === 'lojista') {
         navigateTo('admin-dashboard');
       } else {
@@ -848,7 +856,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error('E-mail já está em uso.');
       }
 
-      const userProfile = await createOrUpdateUserDocument(simulatedUid, emailLower, name.trim(), role, password, cnpj);
+      const userProfile = await createOrUpdateUserDocument(simulatedUid, emailLower, name.trim(), role, password, cnpj, telefone);
       
       // Update local storage too
       const localUsersStr = localStorage.getItem('validamais_usuarios');
@@ -892,6 +900,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email: emailLower,
         nome: name.trim(),
         role: role,
+        ...(cnpj ? { cnpj } : {}),
+        ...(telefone ? { telefone } : {}),
         criadoEm: new Date().toISOString()
       };
 
@@ -966,7 +976,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!user) {
         throw new Error('Identificação necessária: faça login para reservar.');
       }
-      const res = await dbCreateReservation(user.uid, user.email, produtoId, quantidade);
+      const res = await dbCreateReservation(user.uid, user.email, produtoId, quantidade, user.telefone);
       showAlert('Reserva efetuada com sucesso! Retire em loja física.', 'success');
       return res;
     } catch (err: any) {

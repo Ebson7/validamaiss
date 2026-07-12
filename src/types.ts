@@ -17,6 +17,7 @@ export interface Usuario {
   nome: string;
   role: UserRole;
   cnpj?: string;
+  telefone?: string;
   senha?: string;
   criadoEm: any; // Firestore Timestamp
   destaquePlano?: string;       // e.g. 'bronze' | 'ouro' | 'clube'
@@ -48,6 +49,7 @@ export interface Reserva {
   id?: string;
   usuarioId: string;
   usuarioEmail: string;
+  usuarioTelefone?: string; // Customer phone captured at reservation time (store contact)
   produtoId: string;
   nomeProduto: string;
   nomeLoja: string;

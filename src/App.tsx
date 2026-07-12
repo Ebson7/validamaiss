@@ -6,6 +6,7 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
+import { CookieConsent } from './components/CookieConsent';
 import { HomeValida } from './components/screens/Home';
 import { ProdutosValida } from './components/screens/Produtos';
 import { ProdutoDetalheValida } from './components/screens/ProdutoDetalhe';
@@ -152,6 +153,9 @@ function AppContent() {
           </span>
         </div>
       </footer>
+
+      {/* Cookie consent banner */}
+      <CookieConsent />
     </div>
   );
 }

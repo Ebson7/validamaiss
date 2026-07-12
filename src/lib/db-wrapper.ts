@@ -357,7 +357,8 @@ export async function createReservation(
   usuarioId: string,
   usuarioEmail: string,
   produtoId: string,
-  quantidade: number
+  quantidade: number,
+  usuarioTelefone?: string
 ): Promise<Reserva> {
   const now = new Date().toISOString();
   const codigoRetirada = generatePickupCode();
@@ -400,6 +401,7 @@ export async function createReservation(
       const resPayload = {
         usuarioId,
         usuarioEmail,
+        ...(usuarioTelefone ? { usuarioTelefone } : {}),
         produtoId,
         nomeProduto: product.nomeProduto,
         nomeLoja: product.nomeLoja,
@@ -438,6 +440,7 @@ export async function createReservation(
     id: resId,
     usuarioId,
     usuarioEmail,
+    ...(usuarioTelefone ? { usuarioTelefone } : {}),
     produtoId,
     nomeProduto: product.nomeProduto,
     nomeLoja: product.nomeLoja,
