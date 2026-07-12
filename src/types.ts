@@ -50,6 +50,7 @@ export interface Reserva {
   quantidade: number;
   precoTotal: number;
   status: 'pendente' | 'retirado' | 'cancelado';
+  codigoRetirada?: string; // Unique pickup code presented by the customer at the store
   criadoEm: any; // Firestore Timestamp
   atualizadoEm: any; // Firestore Timestamp
 }

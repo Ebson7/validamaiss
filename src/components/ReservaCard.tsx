@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Reserva } from '../types';
-import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, DollarSign, Star, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, DollarSign, Star, CheckCircle2, Ticket, ShieldCheck, ShieldAlert, Copy, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface ReservaCardProps {
@@ -24,6 +24,45 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+
+  // Pickup-code validation (lojista side) & copy feedback (customer side)
+  const [codePromptOpen, setCodePromptOpen] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // Normalize codes so validation ignores case, spaces and an optional VM- prefix
+  const normalizeCode = (value: string) =>
+    value.toUpperCase().replace(/\s+/g, '').replace(/^VM-?/, '');
+
+  const handleCopyCode = async () => {
+    if (!reserva.codigoRetirada) return;
+    try {
+      await navigator.clipboard.writeText(reserva.codigoRetirada);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable — silently ignore
+    }
+  };
+
+  const handleValidateAndConfirm = async () => {
+    if (normalizeCode(codeInput) !== normalizeCode(reserva.codigoRetirada || '')) {
+      setCodeError('Código inválido. Confira o código apresentado pelo cliente.');
+      return;
+    }
+    setCodeError('');
+    setUpdating(true);
+    try {
+      await onStatusUpdate(reserva.id!, 'retirado');
+      setCodePromptOpen(false);
+      setCodeInput('');
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const avaliacaoExistente = avaliacoes.find(a => a.reservaId === reserva.id);
 
@@ -213,7 +252,16 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
               {isAdminView ? (
                 <>
                   <button
-                    onClick={() => handleUpdate('retirado')}
+                    onClick={() => {
+                      if (reserva.codigoRetirada) {
+                        setCodeError('');
+                        setCodeInput('');
+                        setCodePromptOpen((v) => !v);
+                      } else {
+                        // Legacy reservation without a pickup code — fall back to plain confirm
+                        handleUpdate('retirado');
+                      }
+                    }}
                     disabled={updating}
                     className="bg-emerald-600 hover:bg-emerald-700 font-sans text-xs font-bold text-white px-3.5 py-1.5 rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all flex items-center gap-1 flex-1 sm:flex-initial disabled:opacity-50"
                   >
@@ -262,6 +310,76 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Pickup code — customer presents this at the store counter */}
+      {!isAdminView && reserva.status === 'pendente' && reserva.codigoRetirada && (
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 sm:ml-6 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+              <Ticket className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-emerald-700 font-mono uppercase tracking-wider">
+                Código de Retirada
+              </div>
+              <div className="text-xl font-black text-gray-900 font-mono tracking-widest leading-tight">
+                {reserva.codigoRetirada}
+              </div>
+              <div className="text-[10px] text-gray-500 font-medium mt-0.5">
+                Apresente este código no balcão da loja para validar sua reserva.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleCopyCode}
+            className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-200 px-3 py-2 rounded-xl cursor-pointer transition-all active:scale-95"
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? 'Copiado' : 'Copiar'}
+          </button>
+        </div>
+      )}
+
+      {/* Pickup code validation — lojista types the code the customer presents */}
+      {isAdminView && codePromptOpen && reserva.status === 'pendente' && (
+        <div className="rounded-2xl border border-emerald-200 bg-white p-4 sm:ml-6 space-y-3 shadow-xs animate-fade-in">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="text-[11px] font-extrabold text-slate-700 font-mono uppercase tracking-wider">
+              Validar Código de Retirada
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-500 font-medium">
+            Digite o código que o cliente apresentou para confirmar que a reserva foi feita pela plataforma.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              value={codeInput}
+              onChange={(e) => { setCodeInput(e.target.value); setCodeError(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleValidateAndConfirm(); }}
+              placeholder="VM-XXXXXX"
+              autoFocus
+              className={`flex-1 text-sm font-mono font-bold tracking-widest uppercase p-3 bg-gray-50 border rounded-xl focus:outline-none transition-all ${
+                codeError ? 'border-rose-300 focus:border-rose-500' : 'border-gray-200 focus:border-emerald-500'
+              }`}
+            />
+            <button
+              onClick={handleValidateAndConfirm}
+              disabled={updating || !codeInput.trim()}
+              className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold px-4 py-3 rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              Validar e Confirmar
+            </button>
+          </div>
+          {codeError && (
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-rose-600">
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+              {codeError}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Review trigger & Display for user */}
       {reserva.status === 'retirado' && !isAdminView && (

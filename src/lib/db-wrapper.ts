@@ -338,13 +338,29 @@ export async function getReservations(usuarioId?: string): Promise<Reserva[]> {
 }
 
 // 7. Create a reservation
+/**
+ * Generates a unique, human-readable pickup code the customer presents at the
+ * store counter. The lojista validates it before confirming the pickup, proving
+ * the reservation was made through the platform. Ambiguous characters
+ * (0/O, 1/I/L) are excluded so the code is easy to read out loud.
+ */
+function generatePickupCode(): string {
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return `VM-${code}`;
+}
+
 export async function createReservation(
-  usuarioId: string, 
-  usuarioEmail: string, 
-  produtoId: string, 
+  usuarioId: string,
+  usuarioEmail: string,
+  produtoId: string,
   quantidade: number
 ): Promise<Reserva> {
   const now = new Date().toISOString();
+  const codigoRetirada = generatePickupCode();
   let createdRes: Reserva | null = null;
 
   const product = await getProductById(produtoId);
@@ -390,6 +406,7 @@ export async function createReservation(
         quantidade,
         precoTotal,
         status: 'pendente' as const,
+        codigoRetirada,
         criadoEm: serverTimestamp(),
         atualizadoEm: serverTimestamp()
       };
@@ -427,6 +444,7 @@ export async function createReservation(
     quantidade,
     precoTotal,
     status: 'pendente',
+    codigoRetirada,
     criadoEm: now,
     atualizadoEm: now
   };
