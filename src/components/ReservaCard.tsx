@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import qrcode from 'qrcode-generator';
 import { Reserva } from '../types';
 import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, DollarSign, Star, CheckCircle2, Ticket, ShieldCheck, ShieldAlert, Copy, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -65,6 +66,19 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
   };
 
   const avaliacaoExistente = avaliacoes.find(a => a.reservaId === reserva.id);
+
+  // QR Code (SVG) encoding the pickup code — the lojista scans it at the counter
+  const qrSvg = useMemo(() => {
+    if (!reserva.codigoRetirada) return '';
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(reserva.codigoRetirada);
+      qr.make();
+      return qr.createSvgTag({ cellSize: 4, margin: 0 });
+    } catch {
+      return '';
+    }
+  }, [reserva.codigoRetirada]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,10 +325,11 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
         </div>
       </div>
 
-      {/* Pickup code — customer presents this at the store counter */}
+      {/* Pickup code + QR — customer presents this at the store counter */}
       {!isAdminView && reserva.status === 'pendente' && reserva.codigoRetirada && (
-        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 sm:ml-6 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 sm:ml-6 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4">
+          {/* Details + code + copy */}
+          <div className="flex items-start gap-3 min-w-0 order-2 sm:order-1 w-full sm:w-auto">
             <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
               <Ticket className="w-5 h-5" />
             </div>
@@ -325,18 +340,32 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
               <div className="text-xl font-black text-gray-900 font-mono tracking-widest leading-tight">
                 {reserva.codigoRetirada}
               </div>
-              <div className="text-[10px] text-gray-500 font-medium mt-0.5">
-                Apresente este código no balcão da loja para validar sua reserva.
+              <div className="text-[10px] text-gray-500 font-medium mt-0.5 max-w-[17rem]">
+                Mostre o QR Code ou informe este código no balcão da loja para validar sua reserva.
               </div>
+              <button
+                onClick={handleCopyCode}
+                className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-200 px-3 py-1.5 rounded-lg cursor-pointer transition-all active:scale-95"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? 'Copiado' : 'Copiar código'}
+              </button>
             </div>
           </div>
-          <button
-            onClick={handleCopyCode}
-            className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-200 px-3 py-2 rounded-xl cursor-pointer transition-all active:scale-95"
-          >
-            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? 'Copiado' : 'Copiar'}
-          </button>
+
+          {/* QR Code — scannable by the lojista */}
+          {qrSvg && (
+            <div className="order-1 sm:order-2 shrink-0 flex flex-col items-center gap-1">
+              <div
+                className="bg-white p-2 rounded-xl border border-emerald-200 shadow-xs leading-none"
+                aria-label={`QR Code do código de retirada ${reserva.codigoRetirada}`}
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
+              />
+              <span className="text-[9px] font-bold text-emerald-700/70 font-mono uppercase tracking-wider">
+                Escaneie na loja
+              </span>
+            </div>
+          )}
         </div>
       )}
 
