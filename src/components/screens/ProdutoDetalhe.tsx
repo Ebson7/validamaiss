@@ -5,7 +5,149 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart } from 'lucide-react';
+import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Utensils, Flame, ChefHat, Clock } from 'lucide-react';
+
+interface Receita {
+  titulo: string;
+  tempo: string;
+  dificuldade: string;
+  ingredientes: string[];
+  passos: string[];
+  dicaEco: string;
+}
+
+const receitasPorCategoria: Record<string, Receita[]> = {
+  'Laticínios': [
+    {
+      titulo: 'Panqueca fofinha de Iogurte 🥞',
+      tempo: '15 min',
+      dificuldade: 'Fácil',
+      ingredientes: ['200g de Iogurte (próximo do vencimento)', '1 ovo inteiro', '1 xícara de farinha de trigo', '1 colher de chá de fermento em pó', 'Mel ou geleia para servir'],
+      passos: [
+        'Em uma tigela, bata levemente o ovo e adicione todo o iogurte.',
+        'Peneire a farinha e o fermento por cima e misture até formar uma massa homogênea.',
+        'Aqueça uma frigideira antiaderente untada com um pouco de manteiga.',
+        'Coloque pequenas conchas de massa e cozinhe em fogo baixo até dourar os dois lados.'
+      ],
+      dicaEco: 'O iogurte ligeiramente azedinho confere uma acidez perfeita que faz a massa crescer super macia e aerada!'
+    },
+    {
+      titulo: 'Molho de Queijo Cremoso Express 🧀',
+      tempo: '10 min',
+      dificuldade: 'Fácil',
+      ingredientes: ['150g de requijão, queijo prato ou mussarela ralada', '1/2 xícara de leite', '1 dente de alho amassado', 'Sal e noz-moscada a gosto'],
+      passos: [
+        'Em fogo baixo, doure o alho amassado com um pingo de azeite.',
+        'Adicione o leite e os queijos picados ou ralados.',
+        'Mexa constantemente até dissolver por completo e encorpar.',
+        'Tempere com uma pitada de noz-moscada fresca.'
+      ],
+      dicaEco: 'Ralar sobras de queijos que endureceram na geladeira é a melhor forma de reidratá-los e criar um molho super aveludado.'
+    }
+  ],
+  'Padaria': [
+    {
+      titulo: 'Pudim de Pão Cremoso de Padaria 🍮',
+      tempo: '45 min',
+      dificuldade: 'Médio',
+      ingredientes: ['3 pães amanhecidos (duros)', '3 ovos inteiros', '2 xícaras de leite', '1 xícara de açúcar', '1 colher de canela em pó'],
+      passos: [
+        'Corte os pães amanhecidos em pedaços pequenos e cubra com o leite para amolecer por 10 min.',
+        'No liquidificador, bata o açúcar, os ovos, a canela e os pães embebidos.',
+        'Faça uma calda caramelizada em uma forma de pudim.',
+        'Despeje a massa e asse em banho-maria em forno médio por cerca de 35 a 40 minutos.'
+      ],
+      dicaEco: 'Evite jogar pão amanhecido no lixo! O amido concentrado do pão velho cria uma textura ultra cremosa sem precisar de amido de milho.'
+    },
+    {
+      titulo: 'Croutons Crocantes com Ervas Finas 🍞',
+      tempo: '12 min',
+      dificuldade: 'Fácil',
+      ingredientes: ['Pão francês ou de forma cortado em cubos', '2 colheres de azeite de oliva', 'Orégano, alecrim e alho em pó', 'Sal marinho a gosto'],
+      passos: [
+        'Corte o pão em cubos uniformes.',
+        'Em uma assadeira, misture os cubos com azeite e todos os temperos selecionados.',
+        'Leve ao forno preaquecido a 180°C ou airfryer por 8 a 10 minutos, mexendo na metade do tempo.',
+        'Deixe esfriar e guarde em pote hermético para saladas e sopas!'
+      ],
+      dicaEco: 'Dura até 15 dias em pote bem fechado, estendendo a vida útil daquele pão esquecido!'
+    }
+  ],
+  'Hortifrúti': [
+    {
+      titulo: 'Geleia Brilhante de Frutas Maduras 🍓',
+      tempo: '20 min',
+      dificuldade: 'Fácil',
+      ingredientes: ['400g de frutas maduras picadas (morangos, bananas, maçãs)', '1/2 xícara de açúcar', 'Suco de 1/2 limão espremido'],
+      passos: [
+        'Coloque as frutas picadas em uma panela com o açúcar e o suco do limão.',
+        'Cozinhe em fogo baixo, mexendo de vez em quando para não queimar o fundo.',
+        'Deixe ferver até que as frutas se desfaçam e atinjam o ponto de calda grossa.',
+        'Transfira quente para um pote esterilizado e feche bem.'
+      ],
+      dicaEco: 'O limão ativa a pectina natural das frutas maduras ajudando a geleia a gelatinizar sem conservantes artificiais.'
+    }
+  ],
+  'Carnes': [
+    {
+      titulo: 'Arroz de Carreteiro de Panela Única 🥩',
+      tempo: '25 min',
+      dificuldade: 'Médio',
+      ingredientes: ['200g de sobras ou carnes próximas da validade picadas', '1 xícara de arroz cru', '1 cebola e 2 dentes de alho picadinhos', 'Salsinha e cebolinha frescas'],
+      passos: [
+        'Em uma panela funda, doure muito bem as carnes cortadas em cubos pequenos.',
+        'Adicione a cebola e o alho picados e refogue até murcharem.',
+        'Junte o arroz e refogue por 1 minuto.',
+        'Cubra com 2 xícaras de água quente, acerte o sal e cozinhe em fogo baixo até secar a água.'
+      ],
+      dicaEco: 'Cozinhar tudo na mesma panela economiza gás, água de lavagem de louça e retém todos os sucos saborosos da carne!'
+    }
+  ],
+  'Bebidas': [
+    {
+      titulo: 'Smoothie Cremoso de Salvação Alimentar 🥤',
+      tempo: '5 min',
+      dificuldade: 'Super Fácil',
+      ingredientes: ['1 copo de leite ou iogurte', '1 banana bem madura (pode estar congelada)', 'Pedras de gelo', 'Mel ou calda opcional'],
+      passos: [
+        'Bata todos os ingredientes no liquidificador até obter uma consistência aveludada.',
+        'Adicione uma pitada de canela ou cacau para dar um toque especial.'
+      ],
+      dicaEco: 'Bananas que começaram a ficar com a casca preta estão no ápice de sua doçura, ideais para bater sem precisar adoçar artificialmente!'
+    }
+  ],
+  'Mercearia': [
+    {
+      titulo: 'Bolinho Dourado de Arroz Sobrado 🍘',
+      tempo: '15 min',
+      dificuldade: 'Fácil',
+      ingredientes: ['2 xícaras de arroz cozido amanhecido', '1 ovo batido', '2 colheres de cheiro-verde', '3 colheres de farinha de trigo', 'Queijo ralado a gosto'],
+      passos: [
+        'Misture o arroz cozido com o ovo batido, o cheiro-verde e o queijo ralado.',
+        'Vá adicionando a farinha aos poucos até conseguir dar liga na massa.',
+        'Modele os bolinhos com duas colheres ou com as mãos untadas.',
+        'Frite em óleo quente ou asse na Airfryer a 200°C por 12 minutos até dourar.'
+      ],
+      dicaEco: 'A farinha de trigo serve para dar liga, mas se a massa estiver muito seca, você pode adicionar uma colherada de requijão ou leite para hidratar!'
+    }
+  ]
+};
+
+const receitasFallback: Receita[] = [
+  {
+    titulo: 'Farofa Rica do Chefe Contra o Desperdício 🥘',
+    tempo: '15 min',
+    dificuldade: 'Fácil',
+    ingredientes: ['1 xícara de farinha de mandioca ou milho', '1/2 cebola picada', 'Sobras picadinhas (talos de folhas, tomate, frios ou carnes)', '1 colher de manteiga ou azeite'],
+    passos: [
+      'Aqueça a manteiga em uma frigideira grande e doure a cebola.',
+      'Refogue todas as sobras picadinhas que você tiver na geladeira por 3 minutos.',
+      'Adicione a farinha aos poucos, mexendo sem parar até torrar e ficar crocante.',
+      'Finalize com sal, pimenta e cheiro-verde picadinho.'
+    ],
+    dicaEco: 'Folhas e talos de brócolis, beterraba ou couve-flor picados bem finos ficam deliciosos e adicionam fibras, vitaminas e ferro à sua farofa!'
+  }
+];
 
 export const ProdutoDetalheValida: React.FC = () => {
   const { 
@@ -493,6 +635,79 @@ ${shareUrl}`
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Mural de Receitas Inteligente Contra o Desperdício */}
+      <div id="smart_recipe_mural_board" className="glass rounded-3xl border-emerald-200/55 p-6 md:p-8 space-y-6 bg-gradient-to-br from-emerald-500/5 to-transparent relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-emerald-100 pb-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <ChefHat className="w-5 h-5 text-emerald-600 animate-pulse" />
+              Mural Inteligente de Receitas de Aproveitamento 🍳
+            </h2>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+              Dicas culinárias criativas baseadas em <strong>{produto.categoria}</strong> para zerar o desperdício pós-compra!
+            </p>
+          </div>
+          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-mono font-black uppercase tracking-wider px-3 py-1 rounded-full border border-emerald-200/50">
+            Dica ValidaMais
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {(receitasPorCategoria[produto.categoria] || receitasFallback).map((rec, rIdx) => (
+            <div key={rIdx} className="bg-white/70 hover:bg-white border border-white hover:border-emerald-300/40 rounded-2xl p-5 shadow-3xs hover:shadow-xs transition-all duration-300 flex flex-col justify-between gap-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-start gap-4">
+                  <h3 className="font-extrabold text-sm text-slate-900 leading-tight">
+                    {rec.titulo}
+                  </h3>
+                  <div className="flex gap-2 shrink-0 font-mono text-[9px] font-bold">
+                    <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-slate-400" /> {rec.tempo}
+                    </span>
+                    <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md">
+                      {rec.dificuldade}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase font-mono block">Ingredientes sugeridos:</span>
+                  <ul className="grid grid-cols-1 gap-1 pl-1">
+                    {rec.ingredientes.map((ing, iIdx) => (
+                      <li key={iIdx} className="text-xs text-slate-600 font-semibold flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
+                        {ing}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                  <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase font-mono block">Modo de preparo rápido:</span>
+                  <ol className="list-decimal pl-4.5 space-y-1.5 text-xs text-slate-600 font-medium leading-relaxed">
+                    {rec.passos.map((passo, pIdx) => (
+                      <li key={pIdx}>
+                        {passo}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+
+              <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3 flex gap-2 text-[11px] leading-relaxed text-emerald-850 font-medium mt-2">
+                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-black text-emerald-900 block">Dica Desperdício Zero:</strong>
+                  {rec.dicaEco}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
