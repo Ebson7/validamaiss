@@ -9,8 +9,33 @@ import { UserRole } from '../../types';
 import {
   Mail, Lock, User, UserPlus, Eye, EyeOff,
   CheckCircle, RefreshCw, ArrowLeft, AlertCircle,
-  ShieldCheck, Leaf, Store, ShoppingBag
+  ShieldCheck, Leaf, Store, ShoppingBag, Building2
 } from 'lucide-react';
+
+function maskCNPJ(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 14);
+  return d
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+function validateCNPJ(cnpj: string): boolean {
+  const s = cnpj.replace(/\D/g, '');
+  if (s.length !== 14 || /^(\d)\1+$/.test(s)) return false;
+  const calc = (len: number) => {
+    let sum = 0;
+    let w = len - 7;
+    for (let i = 0; i < len; i++) {
+      sum += parseInt(s[i]) * w--;
+      if (w < 2) w = 9;
+    }
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === parseInt(s[12]) && calc(13) === parseInt(s[13]);
+}
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -43,6 +68,8 @@ export const CadastroValida: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [role, setRole] = useState<UserRole>('user');
+  const [cnpj, setCnpj] = useState('');
+  const [cnpjError, setCnpjError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // OTP step
@@ -69,6 +96,21 @@ export const CadastroValida: React.FC = () => {
     if (password !== confirmPassword) {
       showAlert('As senhas não coincidem. Verifique e tente novamente.', 'warning');
       return;
+    }
+
+    if (role === 'lojista') {
+      const stripped = cnpj.replace(/\D/g, '');
+      if (stripped.length < 14) {
+        setCnpjError('Informe o CNPJ completo (14 dígitos).');
+        showAlert('CNPJ incompleto.', 'warning');
+        return;
+      }
+      if (!validateCNPJ(cnpj)) {
+        setCnpjError('CNPJ inválido. Verifique os dígitos e tente novamente.');
+        showAlert('CNPJ inválido.', 'warning');
+        return;
+      }
+      setCnpjError('');
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -143,7 +185,7 @@ export const CadastroValida: React.FC = () => {
     setLoading(true);
     setVerificationError('');
     try {
-      await registerUser(email.trim(), password, nome.trim(), role);
+      await registerUser(email.trim(), password, nome.trim(), role, role === 'lojista' ? cnpj : undefined);
     } catch (err: any) {
       setVerificationError(err.message || 'Erro ao finalizar o cadastro.');
     } finally {
@@ -327,6 +369,48 @@ export const CadastroValida: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* CNPJ — lojistas only */}
+              {role === 'lojista' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 font-mono uppercase tracking-wide">
+                    CNPJ da Empresa <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      placeholder="00.000.000/0000-00"
+                      value={cnpj}
+                      onChange={(e) => {
+                        setCnpj(maskCNPJ(e.target.value));
+                        setCnpjError('');
+                      }}
+                      className={`w-full text-sm pl-10 pr-4 py-3 border bg-gray-50 focus:bg-white rounded-xl focus:outline-none focus:ring-2 transition-all font-mono tracking-wider ${
+                        cnpjError
+                          ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-400/15'
+                          : cnpj.replace(/\D/g,'').length === 14 && validateCNPJ(cnpj)
+                          ? 'border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500/15'
+                          : 'border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/15'
+                      }`}
+                    />
+                    {cnpj.replace(/\D/g,'').length === 14 && validateCNPJ(cnpj) && (
+                      <CheckCircle className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
+                    )}
+                  </div>
+                  {cnpjError ? (
+                    <p className="text-[10px] font-bold text-rose-500 font-mono flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> {cnpjError}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-gray-400 font-medium">
+                      Necessário para ativar o perfil de lojista na plataforma
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Password */}
               <div className="space-y-1.5">

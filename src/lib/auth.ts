@@ -19,7 +19,7 @@ import { Usuario, UserRole } from '../types';
 /**
  * Creates/Updates user document in Firestore post-authentication.
  */
-export async function createOrUpdateUserDocument(uid: string, email: string, nome: string, role: UserRole, senha?: string): Promise<Usuario> {
+export async function createOrUpdateUserDocument(uid: string, email: string, nome: string, role: UserRole, senha?: string, cnpj?: string): Promise<Usuario> {
   const userRef = doc(db, 'usuarios', uid);
   const userDoc: any = {
     uid,
@@ -29,9 +29,8 @@ export async function createOrUpdateUserDocument(uid: string, email: string, nom
     criadoEm: serverTimestamp()
   };
 
-  if (senha) {
-    userDoc.senha = senha;
-  }
+  if (senha) userDoc.senha = senha;
+  if (cnpj) userDoc.cnpj = cnpj;
 
   try {
     await setDoc(userRef, userDoc);

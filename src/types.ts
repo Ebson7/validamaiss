@@ -16,6 +16,7 @@ export interface Usuario {
   email: string;
   nome: string;
   role: UserRole;
+  cnpj?: string;
   senha?: string;
   criadoEm: any; // Firestore Timestamp
   destaquePlano?: string;       // e.g. 'bronze' | 'ouro' | 'clube'

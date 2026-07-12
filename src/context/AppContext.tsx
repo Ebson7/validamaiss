@@ -68,7 +68,7 @@ interface AppContextType {
   navigateTo: (screen: ScreenType, productId?: string | null) => void;
   loginUser: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (selectedRole?: UserRole) => Promise<void>;
-  registerUser: (email: string, password: string, name: string, role: UserRole) => Promise<void>;
+  registerUser: (email: string, password: string, name: string, role: UserRole, cnpj?: string) => Promise<void>;
   logoutUser: () => Promise<void>;
   saveProduct: (formData: any, productId: string | null) => Promise<Produto>;
   deleteProduct: (id: string) => Promise<void>;
@@ -817,14 +817,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Register handler
-  const registerUser = async (email: string, password: string, name: string, role: UserRole) => {
+  const registerUser = async (email: string, password: string, name: string, role: UserRole, cnpj?: string) => {
     setLoading(true);
     const emailLower = email.trim().toLowerCase();
 
     try {
       // 1. Try real Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name, role);
+      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name, role, undefined, cnpj);
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
       showAlert('Sua conta foi criada no Firebase e conectada com sucesso!', 'success');
@@ -848,7 +848,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error('E-mail já está em uso.');
       }
 
-      const userProfile = await createOrUpdateUserDocument(simulatedUid, emailLower, name.trim(), role, password);
+      const userProfile = await createOrUpdateUserDocument(simulatedUid, emailLower, name.trim(), role, password, cnpj);
       
       // Update local storage too
       const localUsersStr = localStorage.getItem('validamais_usuarios');
