@@ -4,7 +4,7 @@
  */
 
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getMessaging, Messaging } from 'firebase/messaging';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -17,6 +17,13 @@ export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 // Initialize Firebase Auth
 export const auth = getAuth();
+
+// Security: use SESSION persistence so the login does NOT survive closing the
+// browser. The session is cleared when the browser/tab is closed, avoiding a
+// persistent login on a shared device. Best-effort — never block boot on it.
+setPersistence(auth, browserSessionPersistence).catch((err) => {
+  console.warn('Could not set session persistence for auth:', err);
+});
 
 // Initialize Messaging (FCM) safely with fallback support for iframe and non-supporting environments
 let messagingInstance: Messaging | null = null;

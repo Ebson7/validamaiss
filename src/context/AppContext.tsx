@@ -134,11 +134,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<Usuario | null>(() => {
     // Synchronous immediate check for offline/dev speed
-    const saved = localStorage.getItem('validamais_currentUser');
+    const saved = sessionStorage.getItem('validamais_currentUser');
     return saved ? JSON.parse(saved) : null;
   });
   const [loading, setLoading] = useState(() => {
-    const saved = localStorage.getItem('validamais_currentUser');
+    const saved = sessionStorage.getItem('validamais_currentUser');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -635,6 +635,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Authenticated state listener with safe loader fallback
   useEffect(() => {
+    // Security migration: purge any session left in localStorage by older
+    // versions (which persisted the login across browser restarts). The active
+    // session now lives only in sessionStorage and is cleared when the browser
+    // is closed.
+    try { localStorage.removeItem('validamais_currentUser'); } catch {}
+
     // 1. Core listener on Firebase Auth
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
@@ -643,7 +649,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const profile = await getUserProfile(fbUser.uid);
           if (profile) {
             setUser(profile);
-            localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
+            sessionStorage.setItem('validamais_currentUser', JSON.stringify(profile));
           } else {
             // Self-repair case if authenticated but Firestore document was skipped
             const fallbackProfile = await createOrUpdateUserDocument(
@@ -653,18 +659,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               'user'
             );
             setUser(fallbackProfile);
-            localStorage.setItem('validamais_currentUser', JSON.stringify(fallbackProfile));
+            sessionStorage.setItem('validamais_currentUser', JSON.stringify(fallbackProfile));
           }
         } catch (error) {
           console.warn("Could not load user profile from Firestore, keeping local session if any.", error);
         }
       } else {
-        // If google firebase logs out, we only log out locally if we were not in a robust offline-session (supports mock_ and sim_ tokens)
-        const localSession = localStorage.getItem('validamais_currentUser');
+        // If google firebase logs out, we only log out locally if we were not in a robust offline-session (supports mock_, sim_ and local_ tokens)
+        const localSession = sessionStorage.getItem('validamais_currentUser');
         if (localSession) {
           try {
             const parsed = JSON.parse(localSession);
-            const isMockOrSimulated = parsed.uid && (parsed.uid.startsWith('mock_') || parsed.uid.startsWith('sim_'));
+            const isMockOrSimulated = parsed.uid && (parsed.uid.startsWith('mock_') || parsed.uid.startsWith('sim_') || parsed.uid.startsWith('local_'));
             if (!isMockOrSimulated) {
               setUser(null);
             }
@@ -700,7 +706,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const profile = await getUserProfile(cred.user.uid);
       if (profile) {
         setUser(profile);
-        localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
+        sessionStorage.setItem('validamais_currentUser', JSON.stringify(profile));
         setLoading(false);
         showAlert(`Bem-vindo de volta, ${profile.nome}!`, 'success');
         if (profile.role === 'lojista' || (profile.role as string) === 'admin') {
@@ -718,7 +724,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const dbProfile = await loginSimulatedUser(emailLower, password);
       setUser(dbProfile);
-      localStorage.setItem('validamais_currentUser', JSON.stringify(dbProfile));
+      sessionStorage.setItem('validamais_currentUser', JSON.stringify(dbProfile));
       setLoading(false);
       showAlert(`Bem-vindo de volta, ${dbProfile.nome}! (Login de Teste)`, 'success');
       if (dbProfile.role === 'lojista' || (dbProfile.role as string) === 'admin') {
@@ -746,7 +752,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const expectedPass = matchedAny.senha || '123456';
         if (expectedPass === password) {
           setUser(matched);
-          localStorage.setItem('validamais_currentUser', JSON.stringify(matched));
+          sessionStorage.setItem('validamais_currentUser', JSON.stringify(matched));
           setLoading(false);
           showAlert(`Bem-vindo de volta, ${matched.nome}! (Sessão Local)`, 'success');
           if (matched.role === 'lojista' || (matched.role as string) === 'admin') {
@@ -793,7 +799,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       
       setUser(profile);
-      localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
+      sessionStorage.setItem('validamais_currentUser', JSON.stringify(profile));
       showAlert(`Bem-vindo, ${profile.nome}! (Login com Google)`, 'success');
       
       setLoading(false);
@@ -834,7 +840,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('sendEmailVerification failed:', mailErr);
       }
       setUser(userProfile);
-      localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
+      sessionStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
       showAlert('Conta criada! Enviamos um link de verificação para o seu e-mail — confirme para ativar sua conta.', 'success');
       if (role === 'lojista') {
         navigateTo('admin-dashboard');
@@ -870,7 +876,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       setUser(userProfile);
-      localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
+      sessionStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
       
       showAlert(`Sua conta de teste '${userProfile.nome}' foi criada e cadastrada com sucesso!`, 'success');
       if (role === 'lojista') {
@@ -912,7 +918,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('validamais_usuarios', JSON.stringify(localUsers));
 
       setUser(userProfile);
-      localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
+      sessionStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
 
       showAlert(`Conta de teste criada para '${userProfile.nome}' neste navegador (modo offline).`, 'success');
       if (role === 'lojista') {
@@ -935,7 +941,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setUser(null);
     setFirebaseUser(null);
-    localStorage.removeItem('validamais_currentUser');
+    sessionStorage.removeItem('validamais_currentUser');
     showAlert('Você se desconectou com sucesso.', 'info');
     navigateTo('home');
     setLoading(false);
@@ -1125,7 +1131,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 1. Wipe all localStorage app data
       localStorage.removeItem('validamais_usuarios');
       localStorage.removeItem('validamais_reservas');
-      localStorage.removeItem('validamais_currentUser');
+      sessionStorage.removeItem('validamais_currentUser');
 
       // 2. Delete ALL users from Firestore (no exceptions)
       const usuariosSnap = await getDocs(collection(db, 'usuarios'));
@@ -1336,7 +1342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return;
     const updatedUser = { ...user, ...dados };
     setUser(updatedUser);
-    localStorage.setItem('validamais_currentUser', JSON.stringify(updatedUser));
+    sessionStorage.setItem('validamais_currentUser', JSON.stringify(updatedUser));
 
     try {
       const docRef = doc(db, 'usuarios', user.uid);
