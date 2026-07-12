@@ -39,7 +39,7 @@ export const CeoDashboard: React.FC = () => {
       });
 
       // Filter only merchants (admin role)
-      const listMerchants = allUsers.filter(u => u.role === 'admin');
+      const listMerchants = allUsers.filter(u => u.role === 'lojista' || (u.role as string) === 'admin');
       setMerchants(listMerchants);
 
       // Fetch all products to display aggregate metrics

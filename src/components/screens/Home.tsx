@@ -67,7 +67,7 @@ export const HomeValida: React.FC = () => {
               >
                 Criar Conta Gratuita
               </button>
-            ) : user.role === 'admin' ? (
+            ) : user.role === 'lojista' ? (
               <button
                 onClick={() => navigateTo('admin-produtos')}
                 className="px-6 py-3 border border-amber-400/30 text-amber-300 bg-amber-500/5 hover:bg-amber-500/10 font-bold text-xs font-mono uppercase tracking-wide rounded-xl cursor-pointer transition-all"

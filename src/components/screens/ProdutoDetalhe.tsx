@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Utensils, Flame, ChefHat, Clock } from 'lucide-react';
+import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Utensils, Flame, ChefHat, Clock, Sparkles } from 'lucide-react';
 
 interface Receita {
   titulo: string;
@@ -310,8 +310,8 @@ ${shareUrl}`
       return;
     }
 
-    if (user.role === 'admin') {
-      showAlert('Lojistas/Admins não podem reservar produtos para permitir rotatividade honesta.', 'warning');
+    if (user.role === 'lojista') {
+      showAlert('Lojistas não podem reservar produtos para permitir rotatividade honesta.', 'warning');
       return;
     }
 
@@ -598,10 +598,10 @@ ${shareUrl}`
 
                 {/* Submit action */}
                 {user ? (
-                  user.role === 'admin' ? (
+                  user.role === 'lojista' ? (
                     <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl text-xs text-amber-800 leading-relaxed space-y-1">
                       <p className="font-bold flex items-center gap-1 uppercase font-mono"><Info className="w-3.5 h-3.5" /> Atenção Lojista:</p>
-                      <p>Sua conta está cadastrada como Administrador/Lojista. Contas administrativas não estão autorizadas a efetuar reservas no catálogo público.</p>
+                      <p>Sua conta está cadastrada como Lojista. Contas de lojistas não estão autorizadas a efetuar reservas no catálogo público.</p>
                     </div>
                   ) : (
                     <button

@@ -19,7 +19,7 @@ service cloud.firestore {
         data.uid is string && data.uid.size() <= 128 &&
         data.email is string && data.email.size() <= 256 &&
         data.nome is string && data.nome.size() <= 256 &&
-        data.role is string && (data.role == 'user' || data.role == 'admin') &&
+        data.role is string && (data.role == 'user' || data.role == 'lojista' || data.role == 'admin') &&
         data.criadoEm != null &&
         (!data.keys().hasAny(['senha']) || (data.senha is string && data.senha.size() <= 128));
     }

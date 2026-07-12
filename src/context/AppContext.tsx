@@ -112,8 +112,8 @@ const DEFAULT_USERS: Usuario[] = [
   {
     uid: 'mock_userId_admin1',
     email: 'admin@validamais.com',
-    nome: 'João Lojista (Administrador)',
-    role: 'admin',
+    nome: 'João Lojista',
+    role: 'lojista',
     criadoEm: new Date().toISOString()
   }
 ];
@@ -620,7 +620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    if (screen.startsWith('admin') && (!user || user.role !== 'admin')) {
+    if (screen.startsWith('admin') && (!user || (user.role !== 'lojista' && user.role !== 'admin'))) {
       showAlert('Acesso restrito para administradores.', 'error');
       setCurrentScreen('home');
       return;
@@ -701,7 +701,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUser(profile);
         localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
         showAlert(`Bem-vindo de volta, ${profile.nome}!`, 'success');
-        if (profile.role === 'admin') {
+        if (profile.role === 'lojista' || (profile.role as string) === 'admin') {
           navigateTo('admin-dashboard');
         } else {
           navigateTo('home');
@@ -718,7 +718,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(dbProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(dbProfile));
       showAlert(`Bem-vindo de volta, ${dbProfile.nome}! (Login de Teste)`, 'success');
-      if (dbProfile.role === 'admin') {
+      if (dbProfile.role === 'lojista' || (dbProfile.role as string) === 'admin') {
         navigateTo('admin-dashboard');
       } else {
         navigateTo('home');
@@ -745,7 +745,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setUser(matched);
           localStorage.setItem('validamais_currentUser', JSON.stringify(matched));
           showAlert(`Bem-vindo de volta, ${matched.nome}! (Sessão Local)`, 'success');
-          if (matched.role === 'admin') {
+          if (matched.role === 'lojista' || (matched.role as string) === 'admin') {
             navigateTo('admin-dashboard');
           } else {
             navigateTo('home');
@@ -793,7 +793,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showAlert(`Bem-vindo, ${profile.nome}! (Login com Google)`, 'success');
       
       setLoading(false);
-      if (profile.role === 'admin') {
+      if (profile.role === 'lojista') {
         navigateTo('admin-dashboard');
       } else {
         navigateTo('home');
@@ -825,7 +825,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
       showAlert('Sua conta foi criada no Firebase e conectada com sucesso!', 'success');
-      if (role === 'admin') {
+      if (role === 'lojista') {
         navigateTo('admin-dashboard');
       } else {
         navigateTo('home');
@@ -862,7 +862,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
       
       showAlert(`Sua conta de teste '${userProfile.nome}' foi criada e cadastrada com sucesso!`, 'success');
-      if (role === 'admin') {
+      if (role === 'lojista') {
         navigateTo('admin-dashboard');
       } else {
         navigateTo('home');
@@ -901,8 +901,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
 
-      showAlert(`Sua conta de teste '${userProfile.nome}' foi criada localmente com sucesso!`, 'success');
-      if (role === 'admin') {
+      showAlert(`Conta de teste criada para '${userProfile.nome}' neste navegador (modo offline).`, 'success');
+      if (role === 'lojista') {
         navigateTo('admin-dashboard');
       } else {
         navigateTo('home');

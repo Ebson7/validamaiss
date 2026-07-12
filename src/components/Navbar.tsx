@@ -137,28 +137,32 @@ export const Navbar: React.FC = () => {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-1">
-            <button
-              id="nav_btn_home"
-              onClick={() => navigateTo('home')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                currentScreen === 'home'
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              Vitrine
-            </button>
-            <button
-              id="nav_btn_produtos"
-              onClick={() => navigateTo('produtos')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                currentScreen === 'produtos' || currentScreen === 'produto-detalhe'
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              Produtos
-            </button>
+            {(!user || user.role === 'user') && (
+              <>
+                <button
+                  id="nav_btn_home"
+                  onClick={() => navigateTo('home')}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    currentScreen === 'home'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  Vitrine
+                </button>
+                <button
+                  id="nav_btn_produtos"
+                  onClick={() => navigateTo('produtos')}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    currentScreen === 'produtos' || currentScreen === 'produto-detalhe'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  Produtos
+                </button>
+              </>
+            )}
 
             {user && (user.role === 'admin' || user.email === 'ebsonsilva7@gmail.com') && (
               <button
@@ -186,7 +190,7 @@ export const Navbar: React.FC = () => {
               </button>
             )}
 
-            {user && user.role === 'admin' && (
+            {user && user.role === 'lojista' && (
               <div id="admin_nav_group" className="flex items-center space-x-1 border-l pl-3 ml-2 border-gray-200">
                 <button
                   id="nav_btn_admin_db"
@@ -362,9 +366,9 @@ export const Navbar: React.FC = () => {
                 <div className="hidden md:flex flex-col items-end text-right">
                   <span className="text-xs font-semibold text-gray-800">{user.nome}</span>
                   <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full leading-none mt-0.5 text-center ${
-                    user.role === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                    user.role === 'lojista' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
                   }`}>
-                    {user.role === 'admin' ? 'LOGISTA' : 'CLIENTE'}
+                    {user.role === 'lojista' ? 'LOJISTA' : 'CLIENTE'}
                   </span>
                 </div>
 
@@ -405,24 +409,28 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Routing Menu (Bottom Nav Bar for high responsiveness on mobile viewport) */}
       <div className="md:hidden border-t border-gray-100 bg-white fixed bottom-0 left-0 right-0 z-50 flex justify-around py-2.5 px-4 shadow-lg">
-        <button
-          onClick={() => navigateTo('home')}
-          className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
-            currentScreen === 'home' ? 'text-emerald-600' : 'text-gray-400'
-          }`}
-        >
-          <ShoppingBag className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Home</span>
-        </button>
-        <button
-          onClick={() => navigateTo('produtos')}
-          className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
-            currentScreen === 'produtos' || currentScreen === 'produto-detalhe' ? 'text-emerald-600' : 'text-gray-400'
-          }`}
-        >
-          <ShoppingBag className="w-5 h-5 text-amber-500" />
-          <span className="text-[10px] font-medium">Produtos</span>
-        </button>
+        {(!user || user.role === 'user') && (
+          <>
+            <button
+              onClick={() => navigateTo('home')}
+              className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
+                currentScreen === 'home' ? 'text-emerald-600' : 'text-gray-400'
+              }`}
+            >
+              <ShoppingBag className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Home</span>
+            </button>
+            <button
+              onClick={() => navigateTo('produtos')}
+              className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
+                currentScreen === 'produtos' || currentScreen === 'produto-detalhe' ? 'text-emerald-600' : 'text-gray-400'
+              }`}
+            >
+              <ShoppingBag className="w-5 h-5 text-amber-500" />
+              <span className="text-[10px] font-medium">Produtos</span>
+            </button>
+          </>
+        )}
 
         {user && user.role === 'user' && (
           <button
@@ -436,7 +444,7 @@ export const Navbar: React.FC = () => {
           </button>
         )}
 
-        {user && (user.role === 'admin' || user.email === 'ebsonsilva7@gmail.com') && (
+        {user && (user.role === 'lojista' || user.role === 'admin' || user.email === 'ebsonsilva7@gmail.com') && (
           <button
             onClick={() => navigateTo('ceo-dashboard')}
             className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
@@ -448,7 +456,7 @@ export const Navbar: React.FC = () => {
           </button>
         )}
 
-        {user && user.role === 'admin' && (
+        {user && (user.role === 'lojista' || user.role === 'admin') && (
           <>
             <button
               onClick={() => navigateTo('admin-dashboard')}
