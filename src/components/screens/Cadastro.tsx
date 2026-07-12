@@ -270,14 +270,14 @@ export const CadastroValida: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setRole('admin')}
+                  onClick={() => setRole('lojista')}
                   className={`p-3.5 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col justify-between h-24 ${
-                    role === 'admin'
+                    role === 'lojista'
                       ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/10'
                       : 'border-white/50 bg-white/30 hover:border-gray-300'
                   }`}
                 >
-                  <span className={`text-[10px] font-bold font-mono uppercase ${role === 'admin' ? 'text-amber-700' : 'text-gray-405'}`}>Lojista</span>
+                  <span className={`text-[10px] font-bold font-mono uppercase ${role === 'lojista' ? 'text-amber-700' : 'text-gray-405'}`}>Lojista</span>
                   <p className="text-[10.5px] text-gray-600 font-medium leading-tight">Represento um mercado próximo</p>
                 </button>
               </div>

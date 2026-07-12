@@ -110,8 +110,8 @@ const DEFAULT_USERS: Usuario[] = [
   {
     uid: 'mock_userId_admin1',
     email: 'admin@validamais.com',
-    nome: 'João Lojista (Administrador)',
-    role: 'admin',
+    nome: 'João Lojista',
+    role: 'lojista',
     criadoEm: new Date().toISOString()
   }
 ];
@@ -618,7 +618,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    if (screen.startsWith('admin') && (!user || user.role !== 'admin')) {
+    if (screen.startsWith('admin') && (!user || user.role !== 'lojista')) {
       showAlert('Acesso restrito para administradores.', 'error');
       setCurrentScreen('home');
       return;
@@ -700,7 +700,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUser(profile);
         localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
         showAlert(`Bem-vindo de volta, ${profile.nome}!`, 'success');
-        navigateTo(profile.role === 'admin' ? 'admin-dashboard' : 'home');
+        navigateTo(profile.role === 'lojista' ? 'admin-dashboard' : 'home');
         return;
       }
     } catch (err: any) {
@@ -729,7 +729,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setUser(matched);
           localStorage.setItem('validamais_currentUser', JSON.stringify(matched));
           showAlert(`Bem-vindo de volta, ${matched.nome}! (Sessão Local)`, 'success');
-          navigateTo(matched.role === 'admin' ? 'admin-dashboard' : 'home');
+          navigateTo(matched.role === 'lojista' ? 'admin-dashboard' : 'home');
           return;
         }
         showAlert('E-mail ou senha incorretos.', 'error');
@@ -772,7 +772,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showAlert(`Bem-vindo, ${profile.nome}! (Login com Google)`, 'success');
       
       setLoading(false);
-      if (profile.role === 'admin') {
+      if (profile.role === 'lojista') {
         navigateTo('admin-dashboard');
       } else {
         navigateTo('home');
@@ -866,7 +866,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
 
       showAlert(`Conta de teste criada para '${userProfile.nome}' neste navegador (modo offline).`, 'success');
-      navigateTo(role === 'admin' ? 'admin-dashboard' : 'home');
+      navigateTo(role === 'lojista' ? 'admin-dashboard' : 'home');
     } finally {
       setLoading(false);
     }
@@ -902,7 +902,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (profile) {
           setUser(profile);
           showAlert(`Bem-vindo, ${profile.nome}! Sua conta foi verificada com sucesso.`, 'success');
-          navigateTo(profile.role === 'admin' ? 'admin-dashboard' : 'home');
+          navigateTo(profile.role === 'lojista' ? 'admin-dashboard' : 'home');
         }
         return true;
       }
