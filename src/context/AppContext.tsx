@@ -700,6 +700,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (profile) {
         setUser(profile);
         localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
+        setLoading(false);
         showAlert(`Bem-vindo de volta, ${profile.nome}!`, 'success');
         if (profile.role === 'lojista' || (profile.role as string) === 'admin') {
           navigateTo('admin-dashboard');
@@ -717,6 +718,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const dbProfile = await loginSimulatedUser(emailLower, password);
       setUser(dbProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(dbProfile));
+      setLoading(false);
       showAlert(`Bem-vindo de volta, ${dbProfile.nome}! (Login de Teste)`, 'success');
       if (dbProfile.role === 'lojista' || (dbProfile.role as string) === 'admin') {
         navigateTo('admin-dashboard');
@@ -744,6 +746,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (expectedPass === password) {
           setUser(matched);
           localStorage.setItem('validamais_currentUser', JSON.stringify(matched));
+          setLoading(false);
           showAlert(`Bem-vindo de volta, ${matched.nome}! (Sessão Local)`, 'success');
           if (matched.role === 'lojista' || (matched.role as string) === 'admin') {
             navigateTo('admin-dashboard');
