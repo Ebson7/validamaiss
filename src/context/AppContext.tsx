@@ -3,22 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
   signOut,
-  sendEmailVerification,
   User as FirebaseUser,
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
 import { getToken } from 'firebase/messaging';
-import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp, setDoc, updateDoc, query, where } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, messaging } from '../lib/firebase';
-import { createOrUpdateUserDocument, getUserProfile } from '../lib/auth';
-import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem, Favorito } from '../types';
+import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
+import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem, Favorito, FavoritoLoja } from '../types';
 import { 
   getProducts, 
   getStoreProducts, 
@@ -44,7 +43,8 @@ export type ScreenType =
   | 'admin-produtos-novo' 
   | 'admin-produtos-editar'
   | 'admin-reservas'
-  | 'admin-categorias';
+  | 'admin-categorias'
+  | 'ceo-dashboard';
 
 interface Alert {
   type: 'success' | 'error' | 'warning' | 'info';
@@ -68,10 +68,7 @@ interface AppContextType {
   navigateTo: (screen: ScreenType, productId?: string | null) => void;
   loginUser: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (selectedRole?: UserRole) => Promise<void>;
-  registerUser: (email: string, password: string, name: string, role: UserRole, telefone?: string) => Promise<void>;
-  emailVerificationPending: boolean;
-  resendVerificationEmail: () => Promise<void>;
-  confirmEmailVerified: () => Promise<boolean>;
+  registerUser: (email: string, password: string, name: string, role: UserRole, cnpj?: string) => Promise<void>;
   logoutUser: () => Promise<void>;
   saveProduct: (formData: any, productId: string | null) => Promise<Produto>;
   deleteProduct: (id: string) => Promise<void>;
@@ -97,6 +94,11 @@ interface AppContextType {
   favoritosLoading: boolean;
   isFavoritado: (produtoId: string) => boolean;
   toggleFavorito: (produtoId: string) => Promise<void>;
+  favoritosLojas: FavoritoLoja[];
+  favoritosLojasLoading: boolean;
+  isLojaFavoritada: (nomeLoja: string) => boolean;
+  toggleFavoritoLoja: (nomeLoja: string) => Promise<void>;
+  updateUserProfile: (dados: Partial<Usuario>) => Promise<void>;
 }
 
 const DEFAULT_USERS: Usuario[] = [
@@ -174,6 +176,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
   const [favoritosLoading, setFavoritosLoading] = useState(true);
+  const [favoritosLojas, setFavoritosLojas] = useState<FavoritoLoja[]>(() => {
+    const saved = localStorage.getItem('validamais_favoritos_lojas');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [favoritosLojasLoading, setFavoritosLojasLoading] = useState(true);
   const [notificationsPermission, setNotificationsPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -186,7 +193,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('validamais_reservas');
     return !saved; // Only show spinner if cache is empty
   });
-  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
 
   // Fast-boot safety fallback: prevents UI lockups by ensuring no loader gets stuck on startup
   useEffect(() => {
@@ -195,6 +201,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setProdutosLoading(false);
       setReservasLoading(false);
       setFavoritosLoading(false);
+      setFavoritosLojasLoading(false);
     }, 600); // 600ms target to guarantee speedy interactive UI
     return () => clearTimeout(timer);
   }, []);
@@ -262,9 +269,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // Real-time synchronization for 'categorias' — DISPLAY ONLY. This read path
-  // never mutates Firestore, so the rendered list can never flicker as a side
-  // effect of the listener. Seeding lives in a separate, auth-gated effect below.
+  // Real-time synchronization for 'categorias'
   useEffect(() => {
     const colRef = collection(db, 'categorias');
     const unsubscribe = onSnapshot(
@@ -274,29 +279,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         snapshot.forEach((docSnap) => {
           results.push({ id: docSnap.id, ...docSnap.data() } as Categoria);
         });
-
-        // De-duplicate by name (case-insensitive) and order stably, so the list
-        // never repeats or reshuffles between snapshots.
-        const seen = new Set<string>();
-        const unique = results
-          .filter((cat) => {
-            const key = (cat.nome || '').trim().toLowerCase();
-            if (!key || seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          })
-          .sort((a, b) => a.nome.localeCompare(b.nome));
-
-        // Only push new state when the visible set actually changed (order-independent),
-        // avoiding a needless re-render from a fresh array reference.
-        const keyOf = (list: Categoria[]) =>
-          list.map((c) => (c.nome || '').trim().toLowerCase()).sort().join('|');
-        const nextKey = keyOf(unique);
-        setCategorias((prev) => {
-          if (keyOf(prev) === nextKey) return prev;
-          localStorage.setItem('validamais_categorias', JSON.stringify(unique));
-          return unique;
-        });
+        if (results.length > 0) {
+          // Merge default categories with those from Firestore to guarantee we never see a truncated 
+          // or flashing list of categories while documents are being loaded or seeded one-by-one.
+          const merged = new Map<string, Categoria>();
+          DEFAULT_CATEGORIES.forEach(c => merged.set(c.nome.toLowerCase(), c));
+          results.forEach(c => merged.set(c.nome.toLowerCase(), c));
+          const finalSet = Array.from(merged.values());
+          
+          setCategorias(finalSet);
+          localStorage.setItem('validamais_categorias', JSON.stringify(finalSet));
+        } else {
+          // If Firestore collection 'categorias' is empty, seed it on demand asynchronously
+          const seedCategoriesAsync = async () => {
+            const hasSeeded = localStorage.getItem('validamais_categorias_seeded');
+            if (!hasSeeded) {
+              console.log("Firestore 'categorias' collection is empty. Auto-seeding DEFAULT_CATEGORIES...");
+              try {
+                const batchSeeds = DEFAULT_CATEGORIES.map(async (cat) => {
+                  const docRef = await addDoc(collection(db, 'categorias'), {
+                    nome: cat.nome,
+                    criadoEm: new Date().toISOString()
+                  });
+                  return { id: docRef.id, nome: cat.nome, criadoEm: new Date().toISOString() };
+                });
+                await Promise.all(batchSeeds);
+                localStorage.setItem('validamais_categorias_seeded', 'true');
+              } catch (e) {
+                console.warn("Failed automatic categories seeding in background:", e);
+              }
+            }
+          };
+          seedCategoriesAsync();
+        }
       },
       (error) => {
         console.warn("Real-time snapshot categories subscription failed: ", error);
@@ -304,51 +319,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     return unsubscribe;
   }, []);
-
-  // Ensure the standard categories always exist in Firestore (idempotent merge).
-  //
-  // The previous "seed only when the collection is empty" logic left the set
-  // permanently incomplete if a seed pass was interrupted (e.g. only 2 of 6
-  // documents were written): since the collection was no longer empty, the
-  // missing ones were never created again. This effect instead checks which of
-  // the standard categories are absent and creates ONLY those, using
-  // deterministic document ids (so it can never create duplicates) and never
-  // deleting anything. Gated on a real Firebase Auth session because the
-  // security rules require authentication for writes; it runs once per session.
-  const ensuredStandardCategoriasRef = useRef(false);
-  useEffect(() => {
-    if (!firebaseUser || ensuredStandardCategoriasRef.current) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const snap = await getDocs(collection(db, 'categorias'));
-        const present = new Set<string>();
-        snap.forEach((d) => {
-          const n = (((d.data() as any).nome) || '').trim().toLowerCase();
-          if (n) present.add(n);
-        });
-        const missing = DEFAULT_CATEGORIES.filter(
-          (c) => !present.has(c.nome.trim().toLowerCase())
-        );
-        if (missing.length > 0) {
-          await Promise.all(
-            missing.map((cat) =>
-              setDoc(doc(db, 'categorias', cat.id), {
-                nome: cat.nome,
-                criadoEm: new Date().toISOString(),
-              })
-            )
-          );
-        }
-        if (!cancelled) ensuredStandardCategoriasRef.current = true;
-      } catch (e) {
-        console.warn('Não foi possível garantir as categorias padrão:', e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [firebaseUser]);
 
   // Real-time synchronization for 'avaliacoes'
   useEffect(() => {
@@ -408,16 +378,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setNotificacoes([]);
       return;
     }
-    const colRef = collection(db, 'notificacoes');
+    const q = query(collection(db, 'notificacoes'), where('usuarioId', '==', user.uid));
     const unsubscribe = onSnapshot(
-      colRef,
+      q,
       (snapshot) => {
         const results: NotificacaoFeedItem[] = [];
         snapshot.forEach((docSnap) => {
           const item = { id: docSnap.id, ...docSnap.data() } as NotificacaoFeedItem;
-          if (item.usuarioId === user.uid) {
-            results.push(item);
-          }
+          results.push(item);
         });
         
         // Sort notifications by date (newest first)
@@ -488,16 +456,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
     setFavoritosLoading(true);
-    const colRef = collection(db, 'favoritos');
+    const q = query(collection(db, 'favoritos'), where('usuarioId', '==', user.uid));
     const unsubscribe = onSnapshot(
-      colRef,
+      q,
       (snapshot) => {
         const results: Favorito[] = [];
         snapshot.forEach((docSnap) => {
           const fav = { id: docSnap.id, ...docSnap.data() } as Favorito;
-          if (fav.usuarioId === user.uid) {
-            results.push(fav);
-          }
+          results.push(fav);
         });
         setFavoritos(results);
         localStorage.setItem('validamais_favoritos', JSON.stringify(results));
@@ -511,50 +477,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, [user]);
 
-  // Monitor newly added discounted products in real time and automatically deliver a notification matching preferences.
-  //
-  // The listener subscribes ONCE (empty deps) and reads the latest user /
-  // preferences / notifications through a ref. Previously `notificacoes` was a
-  // dependency, but this effect also *writes* to `notificacoes`, so every
-  // auto-notification re-ran the effect, tearing down and recreating the
-  // products subscription and resetting `isInitialBatch` (churn + a window
-  // where the "initial batch" was skipped again).
-  const notifierStateRef = useRef({ user, prefs: notificacoesPreferencias, notificacoes });
+  // Real-time synchronization for 'favoritos_lojas' (user-specific list)
   useEffect(() => {
-    notifierStateRef.current = { user, prefs: notificacoesPreferencias, notificacoes };
-  }, [user, notificacoesPreferencias, notificacoes]);
+    if (!user) {
+      setFavoritosLojas([]);
+      setFavoritosLojasLoading(false);
+      return;
+    }
+    setFavoritosLojasLoading(true);
+    const q = query(collection(db, 'favoritos_lojas'), where('usuarioId', '==', user.uid));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const results: FavoritoLoja[] = [];
+        snapshot.forEach((docSnap) => {
+          const fav = { id: docSnap.id, ...docSnap.data() } as FavoritoLoja;
+          results.push(fav);
+        });
+        setFavoritosLojas(results);
+        localStorage.setItem('validamais_favoritos_lojas', JSON.stringify(results));
+        setFavoritosLojasLoading(false);
+      },
+      (error) => {
+        console.warn("Real-time snapshot favorite stores subscription failed: ", error);
+        setFavoritosLojasLoading(false);
+      }
+    );
+    return unsubscribe;
+  }, [user]);
 
+  // Monitor newly added discounted products in real time and automatically deliver a notification matching preferences
   useEffect(() => {
     const colRef = collection(db, 'produtos');
     let isInitialBatch = true;
-
+    
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       if (isInitialBatch) {
         isInitialBatch = false;
         return; // ignore initial loading items
       }
-
+      
       snapshot.docChanges().forEach(async (change) => {
         if (change.type === 'added') {
           const newProd = { id: change.doc.id, ...change.doc.data() } as Produto;
           const isDiscounted = newProd.precoPromocional < newProd.precoOriginal;
-
+          
           if (isDiscounted && newProd.status === 'disponivel') {
             const prodId = change.doc.id;
-            const { user, prefs, notificacoes } = notifierStateRef.current;
-
+            
             // Deliver notification to logged-in customer matching preferences
             if (user && user.role === 'user') {
+              const prefs = notificacoesPreferencias;
               if (prefs && prefs.notificarNovosDescontos) {
                 // If they have CEP search filters, check if address CEP overlaps, or matches store names
                 const matchesCep = prefs.cepsDesejados.length === 0 || prefs.cepsDesejados.some(cep => {
                   const cleanPref = cep.replace(/\D/g, '').substring(0, 5);
                   const cleanProd = (newProd.endereco || '').replace(/\D/g, '');
-                  return (cleanProd && cleanProd.includes(cleanPref)) ||
+                  return (cleanProd && cleanProd.includes(cleanPref)) || 
                     (newProd.nomeLoja || '').toLowerCase().includes(cep.toLowerCase()) ||
                     (newProd.endereco || '').toLowerCase().includes(cep.toLowerCase());
                 });
-
+                
                 if (matchesCep) {
                   // Avoid duplicating notifications for the same product
                   const exists = notificacoes.some(n => n.produtoId === prodId);
@@ -583,18 +566,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
     });
-
+    
     return unsubscribe;
-  }, []);
+  }, [user, notificacoesPreferencias, notificacoes]);
 
-  // Seed default demo accounts to local storage only (first load).
-  // SECURITY: Demo credentials are NEVER written to the shared Firestore database;
-  // they live exclusively in this browser's localStorage for offline testing.
+  // Seed default demo accounts to local storage and Firestore on first load
   useEffect(() => {
     const existing = localStorage.getItem('validamais_usuarios');
     if (!existing) {
       localStorage.setItem('validamais_usuarios', JSON.stringify(DEFAULT_USERS));
     }
+
+    const seedMockUsersInFirestore = async () => {
+      // Performance guard: Check if already seeded once on this client
+      const alreadySeeded = localStorage.getItem('validamais_mock_seeded');
+      if (alreadySeeded === 'true') return;
+
+      try {
+        for (const u of DEFAULT_USERS) {
+          const simulatedUid = 'sim_' + u.email.replace(/[^a-zA-Z0-9]/g, '_');
+          const existsProfile = await getUserProfile(simulatedUid);
+          if (!existsProfile) {
+            await createOrUpdateUserDocument(simulatedUid, u.email, u.nome, u.role, '123456');
+          }
+        }
+        localStorage.setItem('validamais_mock_seeded', 'true');
+      } catch (err) {
+        console.warn("Firestore user seeding skipped or failed:", err);
+      }
+    };
+
+    seedMockUsersInFirestore();
   }, []);
 
   // Custom alert timer
@@ -618,7 +620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    if (screen.startsWith('admin') && (!user || user.role !== 'lojista')) {
+    if (screen.startsWith('admin') && (!user || (user.role !== 'lojista' && user.role !== 'admin'))) {
       showAlert('Acesso restrito para administradores.', 'error');
       setCurrentScreen('home');
       return;
@@ -656,13 +658,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.warn("Could not load user profile from Firestore, keeping local session if any.", error);
         }
       } else {
-        // If Firebase logs out, we only clear the session if it was NOT an offline/demo
-        // session (mock_, sim_ and local_ prefixes are browser-only test accounts).
+        // If google firebase logs out, we only log out locally if we were not in a robust offline-session (supports mock_ and sim_ tokens)
         const localSession = localStorage.getItem('validamais_currentUser');
         if (localSession) {
           try {
             const parsed = JSON.parse(localSession);
-            const isMockOrSimulated = parsed.uid && (parsed.uid.startsWith('mock_') || parsed.uid.startsWith('sim_') || parsed.uid.startsWith('local_'));
+            const isMockOrSimulated = parsed.uid && (parsed.uid.startsWith('mock_') || parsed.uid.startsWith('sim_'));
             if (!isMockOrSimulated) {
               setUser(null);
             }
@@ -693,48 +694,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const emailLower = email.trim().toLowerCase();
 
     try {
-      // 1. Primary path: real Firebase Authentication (credentials verified server-side).
+      // 1. Try real Firebase Auth
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const profile = await getUserProfile(cred.user.uid);
       if (profile) {
         setUser(profile);
         localStorage.setItem('validamais_currentUser', JSON.stringify(profile));
+        setLoading(false);
         showAlert(`Bem-vindo de volta, ${profile.nome}!`, 'success');
-        navigateTo(profile.role === 'lojista' ? 'admin-dashboard' : 'home');
+        if (profile.role === 'lojista' || (profile.role as string) === 'admin') {
+          navigateTo('admin-dashboard');
+        } else {
+          navigateTo('home');
+        }
         return;
       }
     } catch (err: any) {
-      // If the Email/Password provider is disabled in the Firebase project, the
-      // login can never create a real server session — warn explicitly so the
-      // user knows their writes won't persist until it's enabled.
-      if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/configuration-not-found') {
-        showAlert(
-          'O login por E-mail/Senha não está ativado no Firebase. Ative em: Firebase Console → Authentication → Sign-in method → Email/Senha. Sem isso, os dados não são salvos no servidor.',
-          'error'
-        );
-      }
-      console.warn("Login via Firebase Auth indisponível. Tentando sessão de teste local deste navegador:", err);
+      console.warn("Firebase Auth login failed. Trying simulated persistent login on Firestore:", err);
     }
 
-    // 2. Offline/demo fallback: validate against accounts stored locally in THIS browser only.
-    //    No credentials are read from or compared against the shared database.
+    // 2. Try simulated credentials from Firestore (persistent across different browsers)
+    try {
+      const dbProfile = await loginSimulatedUser(emailLower, password);
+      setUser(dbProfile);
+      localStorage.setItem('validamais_currentUser', JSON.stringify(dbProfile));
+      setLoading(false);
+      showAlert(`Bem-vindo de volta, ${dbProfile.nome}! (Login de Teste)`, 'success');
+      if (dbProfile.role === 'lojista' || (dbProfile.role as string) === 'admin') {
+        navigateTo('admin-dashboard');
+      } else {
+        navigateTo('home');
+      }
+      return;
+    } catch (err: any) {
+      if (err.message && err.message.includes('incorretos')) {
+        showAlert('E-mail ou senha incorretos.', 'error');
+        setLoading(false);
+        throw err;
+      }
+    }
+
+    // 3. Try fallback to simulated user in local storage (perfect for offline/unconfigured environments)
     try {
       const localUsersStr = localStorage.getItem('validamais_usuarios');
       const localUsers: Usuario[] = localUsersStr ? JSON.parse(localUsersStr) : DEFAULT_USERS;
       const matched = localUsers.find(u => u.email.toLowerCase() === emailLower);
-
+      
       if (matched) {
-        const expectedPass = (matched as any).senha || '123456';
+        const matchedAny = matched as any;
+        const expectedPass = matchedAny.senha || '123456';
         if (expectedPass === password) {
           setUser(matched);
           localStorage.setItem('validamais_currentUser', JSON.stringify(matched));
+          setLoading(false);
           showAlert(`Bem-vindo de volta, ${matched.nome}! (Sessão Local)`, 'success');
-          navigateTo(matched.role === 'lojista' ? 'admin-dashboard' : 'home');
+          if (matched.role === 'lojista' || (matched.role as string) === 'admin') {
+            navigateTo('admin-dashboard');
+          } else {
+            navigateTo('home');
+          }
           return;
+        } else {
+          showAlert('E-mail ou senha incorretos.', 'error');
+          setLoading(false);
+          throw new Error('E-mail ou senha incorretos.');
         }
-        showAlert('E-mail ou senha incorretos.', 'error');
-        setLoading(false);
-        throw new Error('E-mail ou senha incorretos.');
       }
     } catch (err: any) {
       if (err.message && err.message.includes('incorretos')) {
@@ -742,7 +766,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // 3. Deny access for non-existent users - explicit registration required
+    // 4. Deny access for non-existent users - explicit registration required
     showAlert('Usuário não cadastrado. Por favor, cadastre-se para acessar o sistema.', 'error');
     setLoading(false);
     throw new Error('Usuário não cadastrado.');
@@ -793,54 +817,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Register handler
-  const registerUser = async (email: string, password: string, name: string, role: UserRole, telefone?: string) => {
+  const registerUser = async (email: string, password: string, name: string, role: UserRole, cnpj?: string) => {
     setLoading(true);
     const emailLower = email.trim().toLowerCase();
 
     try {
-      // 1. Primary path: real Firebase Authentication (password stored hashed server-side).
+      // 1. Try real Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-
-      // Send a real verification email — Firebase emails the user a secure link.
-      try {
-        await sendEmailVerification(cred.user);
-      } catch (verifyErr) {
-        console.warn('sendEmailVerification failed (non-fatal):', verifyErr);
-      }
-
-      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name.trim(), role, telefone);
+      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name, role, undefined, cnpj);
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
-
-      // Signal the registration screen to show the email verification pending state.
-      setEmailVerificationPending(true);
-      showAlert(`Conta criada! Verifique seu e-mail (${email}) para ativar sua conta antes de continuar.`, 'info');
-      // Do NOT navigate away — the Cadastro screen transitions to a "verify email" view.
+      showAlert('Sua conta foi criada no Firebase e conectada com sucesso!', 'success');
+      if (role === 'lojista') {
+        navigateTo('admin-dashboard');
+      } else {
+        navigateTo('home');
+      }
       return;
     } catch (err: any) {
-      if (err?.code === 'auth/email-already-in-use') {
-        showAlert('Este e-mail já está sendo utilizado por outra conta.', 'error');
+      console.warn("Firebase Auth register failed. Creating simulated persistent user on Firestore:", err);
+    }
+
+    // 2. Simulated registration in Firestore (allows cross-browser testing for anyone)
+    const simulatedUid = 'sim_' + emailLower.replace(/[^a-zA-Z0-9]/g, '_');
+    try {
+      const existingProfile = await getUserProfile(simulatedUid);
+      if (existingProfile) {
+        showAlert('Este e-mail já está sendo utilizado.', 'error');
         setLoading(false);
         throw new Error('E-mail já está em uso.');
       }
-      // Detect the most common root cause of "data is not saved to the database":
-      // the Email/Password sign-in provider is not enabled in the Firebase
-      // project, so no real auth session is ever created and Firestore rejects
-      // every write. Make this explicit instead of silently going local.
-      if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/configuration-not-found') {
-        showAlert(
-          'O login por E-mail/Senha não está ativado no Firebase. Sua conta NÃO foi salva no servidor. Ative em: Firebase Console → Authentication → Sign-in method → Email/Senha.',
-          'error'
-        );
-        setLoading(false);
+
+      const userProfile = await createOrUpdateUserDocument(simulatedUid, emailLower, name.trim(), role, password, cnpj);
+      
+      // Update local storage too
+      const localUsersStr = localStorage.getItem('validamais_usuarios');
+      const localUsers: Usuario[] = localUsersStr ? JSON.parse(localUsersStr) : [...DEFAULT_USERS];
+      if (!localUsers.some(u => u.uid === userProfile.uid)) {
+        localUsers.push({
+          ...userProfile,
+          senha: password
+        } as any);
+        localStorage.setItem('validamais_usuarios', JSON.stringify(localUsers));
+      }
+
+      setUser(userProfile);
+      localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
+      
+      showAlert(`Sua conta de teste '${userProfile.nome}' foi criada e cadastrada com sucesso!`, 'success');
+      if (role === 'lojista') {
+        navigateTo('admin-dashboard');
+      } else {
+        navigateTo('home');
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('em uso')) {
         throw err;
       }
-      console.warn("Firebase Auth indisponível. Criando conta de teste apenas neste navegador (offline):", err);
-    }
 
-    // 2. Offline/demo fallback: store the account ONLY in this browser's localStorage.
-    //    SECURITY: passwords are never written to the shared Firestore database.
-    try {
+      console.warn("Firestore registration failed, falling back to local storage-only registration:", err);
+      
+      // Local storage fallback
       const localUsersStr = localStorage.getItem('validamais_usuarios');
       const localUsers: Usuario[] = localUsersStr ? JSON.parse(localUsersStr) : [...DEFAULT_USERS];
       const emailExists = localUsers.some(u => u.email.toLowerCase() === emailLower);
@@ -851,67 +888,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const userProfile: Usuario = {
-        uid: 'local_' + emailLower.replace(/[^a-zA-Z0-9]/g, '_'),
+        uid: simulatedUid,
         email: emailLower,
         nome: name.trim(),
         role: role,
-        ...(telefone ? { telefone } : {}),
         criadoEm: new Date().toISOString()
       };
 
-      localUsers.push({ ...userProfile, senha: password } as any);
+      localUsers.push({
+        ...userProfile,
+        senha: password
+      } as any);
       localStorage.setItem('validamais_usuarios', JSON.stringify(localUsers));
 
       setUser(userProfile);
       localStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
 
       showAlert(`Conta de teste criada para '${userProfile.nome}' neste navegador (modo offline).`, 'success');
-      navigateTo(role === 'lojista' ? 'admin-dashboard' : 'home');
+      if (role === 'lojista') {
+        navigateTo('admin-dashboard');
+      } else {
+        navigateTo('home');
+      }
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Resend the Firebase email verification link to the currently signed-in user.
-  const resendVerificationEmail = async () => {
-    if (!auth.currentUser) {
-      showAlert('Nenhuma sessão ativa encontrada. Por favor, faça o cadastro novamente.', 'error');
-      return;
-    }
-    try {
-      await sendEmailVerification(auth.currentUser);
-      showAlert('E-mail de verificação reenviado! Verifique sua caixa de entrada.', 'success');
-    } catch (err: any) {
-      if (err?.code === 'auth/too-many-requests') {
-        showAlert('Muitas tentativas. Aguarde alguns minutos antes de reenviar.', 'warning');
-      } else {
-        showAlert('Falha ao reenviar o e-mail. Tente novamente em instantes.', 'error');
-      }
-    }
-  };
-
-  // Reload the Firebase user token and check whether the email is now verified.
-  // Returns true when verified and navigates to the correct screen.
-  const confirmEmailVerified = async (): Promise<boolean> => {
-    if (!auth.currentUser) return false;
-    try {
-      await auth.currentUser.reload();
-      if (auth.currentUser.emailVerified) {
-        setEmailVerificationPending(false);
-        const profile = await getUserProfile(auth.currentUser.uid);
-        if (profile) {
-          setUser(profile);
-          showAlert(`Bem-vindo, ${profile.nome}! Sua conta foi verificada com sucesso.`, 'success');
-          navigateTo(profile.role === 'lojista' ? 'admin-dashboard' : 'home');
-        }
-        return true;
-      }
-      showAlert('E-mail ainda não verificado. Clique no link enviado para a sua caixa de entrada.', 'warning');
-      return false;
-    } catch (err) {
-      console.error('confirmEmailVerified error:', err);
-      showAlert('Não foi possível verificar o status do e-mail. Tente novamente.', 'error');
-      return false;
     }
   };
 
@@ -1008,13 +1008,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLoading(true);
     try {
       const colRef = collection(db, 'categorias');
-      await addDoc(colRef, {
+      const docRef = await addDoc(colRef, {
         nome: nome.trim(),
         criadoEm: new Date().toISOString()
       });
-      // The real-time snapshot listener is the single source of truth and will
-      // pick up the new document; no optimistic local insert (which would
-      // briefly duplicate and reshuffle the list before the snapshot arrives).
+      const newCat: Categoria = { id: docRef.id, nome: nome.trim(), criadoEm: new Date().toISOString() };
+      setCategorias((prev) => [...prev, newCat]);
       showAlert(`Categoria '${nome.trim()}' cadastrada com sucesso!`, 'success');
     } catch (err) {
       console.warn("Firestore category addition failed, executing locally:", err);
@@ -1023,13 +1022,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const updated = [...categorias, newCat];
       setCategorias(updated);
       localStorage.setItem('validamais_categorias', JSON.stringify(updated));
-      // Be honest: the write did NOT reach the server. This is almost always an
-      // authentication issue (the security rules require a signed-in session) or
-      // a connectivity problem, so surface it as a warning instead of "success".
-      const motivo = !firebaseUser
-        ? 'Você não está autenticado no servidor — faça login novamente.'
-        : 'Falha de conexão ou permissão.';
-      showAlert(`Não foi possível salvar a categoria no servidor (${motivo}) Ela ficou apenas neste dispositivo.`, 'warning');
+      showAlert(`Categoria '${nome.trim()}' criada localmente.`, 'success');
     } finally {
       setLoading(false);
     }
@@ -1038,24 +1031,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCategory = async (id: string) => {
     setLoading(true);
     try {
-      // Also remove any hidden duplicate documents that share this name. The
-      // displayed list is de-duplicated by name, so a single id may stand in
-      // for several legacy docs; deleting only that id would let a same-name
-      // duplicate resurface on the next snapshot. Safe to do here because this
-      // runs only on an explicit admin action (not on the passive read path).
-      const target = categorias.find(c => c.id === id);
-      const targetName = (target?.nome || '').trim().toLowerCase();
-
-      let idsToDelete = [id];
-      if (targetName) {
-        const snap = await getDocs(collection(db, 'categorias'));
-        const matches = snap.docs
-          .filter(d => (((d.data() as any).nome) || '').trim().toLowerCase() === targetName)
-          .map(d => d.id);
-        if (matches.length > 0) idsToDelete = matches;
-      }
-
-      await Promise.all(idsToDelete.map(cid => deleteDoc(doc(db, 'categorias', cid))));
+      await deleteDoc(doc(db, 'categorias', id));
       setCategorias((prev) => prev.filter(c => c.id !== id));
       showAlert('Categoria removida com sucesso!', 'success');
     } catch (err) {
@@ -1136,64 +1112,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const clearAllDatabaseUsers = async (): Promise<void> => {
     setLoading(true);
     try {
-      // 1. Reset LocalStorage
-      localStorage.setItem('validamais_usuarios', JSON.stringify(DEFAULT_USERS));
-      localStorage.setItem('validamais_reservas', JSON.stringify([]));
+      // 1. Wipe all localStorage app data
+      localStorage.removeItem('validamais_usuarios');
+      localStorage.removeItem('validamais_reservas');
+      localStorage.removeItem('validamais_currentUser');
 
-      // 2. Clear ALL user documents from Firestore *except* default models
-      const defaultUids = [
-        'sim_cliente_validamais_com',
-        'sim_admin_validamais_com',
-        'mock_userId_cliente1',
-        'mock_userId_admin1'
-      ];
-
+      // 2. Delete ALL users from Firestore (no exceptions)
       const usuariosSnap = await getDocs(collection(db, 'usuarios'));
-      const userDeletes: Promise<void>[] = [];
-      usuariosSnap.forEach((docSnap) => {
-        if (!defaultUids.includes(docSnap.id)) {
-          userDeletes.push(deleteDoc(doc(db, 'usuarios', docSnap.id)));
-        }
-      });
-      if (userDeletes.length > 0) {
-        await Promise.all(userDeletes);
+      if (!usuariosSnap.empty) {
+        await Promise.all(usuariosSnap.docs.map(d => deleteDoc(doc(db, 'usuarios', d.id))));
       }
 
       // 3. Delete ALL reservations from Firestore
       const reservasSnap = await getDocs(collection(db, 'reservas'));
-      const reservaDeletes: Promise<void>[] = [];
-      reservasSnap.forEach((docSnap) => {
-        reservaDeletes.push(deleteDoc(doc(db, 'reservas', docSnap.id)));
-      });
-      if (reservaDeletes.length > 0) {
-        await Promise.all(reservaDeletes);
+      if (!reservasSnap.empty) {
+        await Promise.all(reservasSnap.docs.map(d => deleteDoc(doc(db, 'reservas', d.id))));
       }
 
-      // 4. Delete ALL products and seed defaults
+      // 4. Delete ALL products from Firestore (leave catalog empty for fresh start)
       const produtosSnap = await getDocs(collection(db, 'produtos'));
-      const productDeletes: Promise<void>[] = [];
-      produtosSnap.forEach((docSnap) => {
-        productDeletes.push(deleteDoc(doc(db, 'produtos', docSnap.id)));
-      });
-      if (productDeletes.length > 0) {
-        await Promise.all(productDeletes);
+      if (!produtosSnap.empty) {
+        await Promise.all(produtosSnap.docs.map(d => deleteDoc(doc(db, 'produtos', d.id))));
       }
 
-      const creatorId = user?.uid || 'mock_userId_admin1';
-      await seedDefaultProducts(creatorId);
-
-      // 5. Check if we should logout
-      if (user && !defaultUids.includes(user.uid)) {
-        setUser(null);
-        localStorage.removeItem('validamais_currentUser');
-        navigateTo('home');
-        showAlert('Todos os dados foram reiniciados do zero! Faça login com uma conta padrão.', 'success');
-      } else {
-        showAlert('Base de dados limpa com sucesso! Somente dados de modelo/padrão mantidos.', 'success');
-      }
+      // 5. Log out current session
+      setUser(null);
+      navigateTo('home');
+      showAlert('Base de dados completamente zerada! Cadastre-se para começar do zero.', 'success');
     } catch (err: any) {
       console.error("Erro ao redefinir base de dados:", err);
-      showAlert('Não foi possível realizar a limpeza remota completa.', 'error');
+      showAlert('Não foi possível realizar a limpeza completa. Tente novamente.', 'error');
     } finally {
       setLoading(false);
     }
@@ -1340,6 +1288,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const isLojaFavoritada = (nomeLoja: string): boolean => {
+    return favoritosLojas.some((f) => f.nomeLoja.toLowerCase() === nomeLoja.toLowerCase());
+  };
+
+  const toggleFavoritoLoja = async (nomeLoja: string): Promise<void> => {
+    if (!user) {
+      showAlert('Faça login para salvar estabelecimentos nos seus favoritos.', 'warning');
+      navigateTo('login');
+      return;
+    }
+
+    const existingFav = favoritosLojas.find((f) => f.nomeLoja.toLowerCase() === nomeLoja.toLowerCase());
+
+    try {
+      if (existingFav && existingFav.id) {
+        // Remove from favorites
+        const docRef = doc(db, 'favoritos_lojas', existingFav.id);
+        await deleteDoc(docRef);
+        showAlert('Estabelecimento removido dos favoritos.', 'success');
+      } else {
+        // Add to favorites
+        const payload: Omit<FavoritoLoja, 'id'> = {
+          usuarioId: user.uid,
+          nomeLoja,
+          criadoEm: new Date().toISOString(),
+        };
+        await addDoc(collection(db, 'favoritos_lojas'), payload);
+        showAlert('Estabelecimento adicionado aos favoritos!', 'success');
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'favoritos_lojas');
+    }
+  };
+
+  const updateUserProfile = async (dados: Partial<Usuario>): Promise<void> => {
+    if (!user) return;
+    const updatedUser = { ...user, ...dados };
+    setUser(updatedUser);
+    localStorage.setItem('validamais_currentUser', JSON.stringify(updatedUser));
+
+    try {
+      const docRef = doc(db, 'usuarios', user.uid);
+      await setDoc(docRef, updatedUser, { merge: true });
+    } catch (err) {
+      console.warn("Could not merge profile document to Firestore:", err);
+    }
+  };
+
   const testSendNotificationPreview = async (produto: Produto): Promise<void> => {
     if (!user) {
       showAlert('É necessário estar logado para simular notificações.', 'warning');
@@ -1386,9 +1382,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginUser,
         loginWithGoogle,
         registerUser,
-        emailVerificationPending,
-        resendVerificationEmail,
-        confirmEmailVerified,
         logoutUser,
         saveProduct,
         deleteProduct,
@@ -1412,7 +1405,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         favoritos,
         favoritosLoading,
         isFavoritado,
-        toggleFavorito
+        toggleFavorito,
+        favoritosLojas,
+        favoritosLojasLoading,
+        isLojaFavoritada,
+        toggleFavoritoLoja,
+        updateUserProfile
       }}
     >
       {children}

@@ -8,7 +8,20 @@ import { useApp } from '../../context/AppContext';
 import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
-  const { selectedProductId, navigateTo, user, showAlert, produtos, produtosLoading: loading, createReservation, avaliacoes, isFavoritado, toggleFavorito } = useApp();
+  const { 
+    selectedProductId, 
+    navigateTo, 
+    user, 
+    showAlert, 
+    produtos, 
+    produtosLoading: loading, 
+    createReservation, 
+    avaliacoes, 
+    isFavoritado, 
+    toggleFavorito,
+    isLojaFavoritada,
+    toggleFavoritoLoja
+  } = useApp();
   const [quantidade, setQuantidade] = useState(1);
   const [reserving, setReserving] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -241,10 +254,22 @@ ${shareUrl}`
         <div className="flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500 font-bold">
-                <Store className="w-4 h-4 text-emerald-600 shrink-0" />
+              <button
+                type="button"
+                onClick={() => toggleFavoritoLoja(produto.nomeLoja)}
+                className="flex items-center gap-1.5 text-xs text-gray-500 font-bold hover:text-rose-600 transition-colors cursor-pointer group/store-btn"
+                title={isLojaFavoritada(produto.nomeLoja) ? "Remover estabelecimento dos favoritos" : "Favoritar este estabelecimento"}
+              >
+                <Store className="w-4 h-4 text-emerald-600 shrink-0 group-hover/store-btn:text-rose-500 transition-colors" />
                 <span>{produto.nomeLoja}</span>
-              </div>
+                <Heart 
+                  className={`w-3.5 h-3.5 shrink-0 transition-all ${
+                    isLojaFavoritada(produto.nomeLoja) 
+                      ? 'text-rose-500 fill-rose-500 scale-110' 
+                      : 'text-gray-300 group-hover/store-btn:text-rose-200'
+                  }`} 
+                />
+              </button>
               {mediaAvaliacao ? (
                 <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded-lg text-amber-750 text-amber-700 font-mono text-[10px] font-black">
                   <span>★ {mediaAvaliacao}</span>
@@ -348,9 +373,36 @@ ${shareUrl}`
                       ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
                       : 'bg-white border-gray-200 text-gray-700 hover:bg-rose-50 hover:border-rose-150 hover:text-rose-605'
                   }`}
+                  title="Favoritar este lote de alimento"
                 >
-                  <Heart className={`w-4 h-4 ${isFavoritado(produto.id!) ? 'fill-current' : ''}`} />
-                  <span>{isFavoritado(produto.id!) ? 'Favoritado' : 'Favoritar Lote'}</span>
+                  <Heart 
+                    className={`w-4 h-4 transition-all ${
+                      isFavoritado(produto.id!) 
+                        ? 'text-rose-600 fill-rose-600 scale-110 font-bold' 
+                        : 'text-gray-500'
+                    }`} 
+                  />
+                  <span>{isFavoritado(produto.id!) ? 'Lote Favoritado' : 'Favoritar Lote'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toggleFavoritoLoja(produto.nomeLoja)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs border ${
+                    isLojaFavoritada(produto.nomeLoja)
+                      ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-rose-50 hover:border-red-150 hover:text-rose-600'
+                  }`}
+                  title="Favoritar esta loja parceira"
+                >
+                  <Store 
+                    className={`w-4 h-4 transition-all ${
+                      isLojaFavoritada(produto.nomeLoja) 
+                        ? 'text-rose-600 fill-rose-600 scale-110 font-bold' 
+                        : 'text-gray-500'
+                    }`} 
+                  />
+                  <span>{isLojaFavoritada(produto.nomeLoja) ? 'Loja Favoritada' : 'Favoritar Loja'}</span>
                 </button>
               </div>
             </div>

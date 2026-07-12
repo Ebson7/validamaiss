@@ -47,6 +47,17 @@ export const Navbar: React.FC = () => {
   const [showPrefs, setShowPrefs] = useState(false);
   const [cepInput, setCepInput] = useState('');
   const [vapidInput, setVapidInput] = useState('');
+  const [globalNotice, setGlobalNotice] = useState<string>(() => {
+    return localStorage.getItem('validamais_global_notice') || 'Seja bem-vindo ao ValidaMais! Juntos combatendo o desperdício alimentar. 🌱';
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setGlobalNotice(localStorage.getItem('validamais_global_notice') || 'Seja bem-vindo ao ValidaMais! Juntos combatendo o desperdício alimentar. 🌱');
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Sync preferences search strings on load
   useEffect(() => {
@@ -92,7 +103,21 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <nav id="navbar_container" className="glass sticky top-4 z-50 shadow-xs mx-4 sm:mx-6 lg:mx-8 my-4 rounded-2xl border border-gray-100 bg-white/80 backdrop-blur-md transition-all">
+    <>
+      {/* System Global Broadcast Notice Bar */}
+      <div 
+        id="global_ceo_broadcast_ticker"
+        className="bg-slate-950 font-sans py-2.5 px-6 flex flex-wrap justify-center items-center gap-1.5 text-center text-[10px] sm:text-xs font-black uppercase text-emerald-400 border-b border-emerald-500/10 tracking-wider shadow-sm select-none"
+      >
+        <span className="relative flex h-2 w-2 mr-1">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <span className="font-mono text-white/50 mr-0.5">ValidaMais Alerta:</span>
+        <span className="text-stone-100">{globalNotice}</span>
+      </div>
+
+      <nav id="navbar_container" className="glass sticky top-4 z-50 shadow-xs mx-4 sm:mx-6 lg:mx-8 my-4 rounded-2xl border border-gray-100 bg-white/80 backdrop-blur-md transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo & Brand */}
@@ -141,6 +166,17 @@ export const Navbar: React.FC = () => {
                   Produtos
                 </button>
               </>
+            )}
+
+            {user && (user.role === 'admin' || user.email === 'ebsonsilva7@gmail.com') && (
+              <button
+                id="nav_btn_ceo_dashboard"
+                onClick={() => navigateTo('ceo-dashboard')}
+                className={`px-3 py-2.5 rounded-xl text-[10px] font-black uppercase font-mono tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 bg-slate-950 text-emerald-400 hover:bg-slate-900 shadow-sm border border-emerald-500/20`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                <span>Painel CEO 👑</span>
+              </button>
             )}
 
             {user && user.role === 'user' && (
@@ -663,5 +699,6 @@ export const Navbar: React.FC = () => {
       )}
 
     </nav>
+    </>
   );
 };

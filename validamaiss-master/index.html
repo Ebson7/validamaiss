@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ValidaMaiss — Economia e sustentabilidade</title>
+    <style>
+      /* Instant, JS-free loading shell so the user sees branded content before
+         the React/Firebase bundles finish downloading. Replaced on app mount. */
+      #initial-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: #f8fafc;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      #initial-loader .il-badge {
+        width: 56px;
+        height: 56px;
+        border-radius: 18px;
+        background: #059669;
+        box-shadow: 0 10px 25px -8px rgba(5, 150, 105, 0.6);
+        animation: il-bounce 1s infinite;
+      }
+      #initial-loader .il-text {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #94a3b8;
+      }
+      #initial-loader .il-text b { color: #059669; }
+      @keyframes il-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="initial-loader">
+        <div class="il-badge"></div>
+        <div class="il-text">Inicializando Valida<b>Mais</b>...</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

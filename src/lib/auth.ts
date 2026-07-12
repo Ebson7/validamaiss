@@ -3,28 +3,34 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  signInWithPopup,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { Usuario, UserRole } from '../types';
 
 /**
- * Creates/Updates the user profile document in Firestore post-authentication.
- *
- * SECURITY: This function intentionally never persists passwords. Credentials are
- * handled exclusively by Firebase Authentication, which stores them hashed/salted.
+ * Creates/Updates user document in Firestore post-authentication.
  */
-export async function createOrUpdateUserDocument(uid: string, email: string, nome: string, role: UserRole, telefone?: string): Promise<Usuario> {
+export async function createOrUpdateUserDocument(uid: string, email: string, nome: string, role: UserRole, senha?: string, cnpj?: string): Promise<Usuario> {
   const userRef = doc(db, 'usuarios', uid);
-  const userDoc: Record<string, any> = {
+  const userDoc: any = {
     uid,
     email,
     nome,
     role,
     criadoEm: serverTimestamp()
   };
-  if (telefone) {
-    userDoc.telefone = telefone;
-  }
+
+  if (senha) userDoc.senha = senha;
+  if (cnpj) userDoc.cnpj = cnpj;
 
   try {
     await setDoc(userRef, userDoc);
@@ -51,3 +57,24 @@ export async function getUserProfile(uid: string): Promise<Usuario | null> {
     throw error;
   }
 }
+
+/**
+ * Verifies simulated credentials saved in Firestore across multiple browsers.
+ */
+export async function loginSimulatedUser(email: string, pass: string): Promise<Usuario> {
+  const emailLower = email.trim().toLowerCase();
+  const simulatedUid = 'sim_' + emailLower.replace(/[^a-zA-Z0-9]/g, '_');
+  
+  const profile = await getUserProfile(simulatedUid);
+  if (!profile) {
+    throw new Error('Usuário não localizado no banco.');
+  }
+
+  const cachedProfile = profile as any;
+  if (cachedProfile.senha && cachedProfile.senha !== pass) {
+    throw new Error('E-mail ou senha incorretos.');
+  }
+
+  return profile;
+}
+

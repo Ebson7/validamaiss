@@ -1,52 +1,110 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ValidaMaiss — Economia e sustentabilidade</title>
-    <style>
-      /* Instant, JS-free loading shell so the user sees branded content before
-         the React/Firebase bundles finish downloading. Replaced on app mount. */
-      #initial-loader {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 14px;
-        background: #f8fafc;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      }
-      #initial-loader .il-badge {
-        width: 56px;
-        height: 56px;
-        border-radius: 18px;
-        background: #059669;
-        box-shadow: 0 10px 25px -8px rgba(5, 150, 105, 0.6);
-        animation: il-bounce 1s infinite;
-      }
-      #initial-loader .il-text {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #94a3b8;
-      }
-      #initial-loader .il-text b { color: #059669; }
-      @keyframes il-bounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
-      }
-    </style>
+    
+    <!-- SEO Meta Tags -->
+    <title>ValidaMais - Lotes de Alimentos Próximos ao Vencimento com Super Descontos</title>
+    <meta name="description" content="Economize de verdade e combata o desperdício alimentar! Encontre lotes de laticínios, frios, bebidas e padaria com até 70% de desconto perto de você no ValidaMais." />
+    <meta name="keywords" content="alimentos vencimento próximo, desconto vencimento, evitar desperdício de comida, mercado barato, cesta básica, ofertas supermercado, economia doméstica, ValidaMais" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://validamais.com.br" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://validamais.com.br" />
+    <meta property="og:title" content="ValidaMais - Alimentos com Desconto no Mesmo Dia" />
+    <meta property="og:description" content="Economize de verdade no supermercado e ajude o meio ambiente resgatando lotes saudáveis perto do vencimento. Compre online com segurança e retire hoje mesmo!" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=60&w=600" />
+    <meta property="og:site_name" content="ValidaMais" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://validamais.com.br" />
+    <meta property="twitter:title" content="ValidaMais - Lotes de Alimentos com Desconto" />
+    <meta property="twitter:description" content="Resgate alimentos de mercearias e padarias com descontos imbatíveis. Evite o desperdício e poupe de verdade!" />
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=60&w=600" />
+
+    <!-- Google Structured Data (JSON-LD) for Rich Sitelinks & Search Results -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://validamais.com.br/#organization",
+          "name": "ValidaMais",
+          "url": "https://validamais.com.br",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=60&w=400"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+55-11-99999-9999",
+            "contactType": "customer service"
+          },
+          "description": "Plataforma de consumo consciente e combate ao desperdício alimentar conectando estabelecimentos comerciais e consumidores para compra de comida próxima à data de validade com excelentes descontos."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://validamais.com.br/#website",
+          "url": "https://validamais.com.br",
+          "name": "ValidaMais",
+          "publisher": {
+            "@id": "https://validamais.com.br/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://validamais.com.br/?s={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "ItemList",
+          "name": "Navegação e Categorias ValidaMais",
+          "description": "Principais atalhos e seções do aplicativo para facilitar buscas diretas em motores de pesquisa.",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Ofertas & Lotes de Laticínios",
+              "url": "https://validamais.com.br/laticinios",
+              "description": "Queijos, iogurtes, leites e derivados em data promocional de giro rápido."
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Produtos de Padaria & Confeitaria",
+              "url": "https://validamais.com.br/padaria",
+              "description": "Pães frescos, bolos de chocolate vulcão, panetones e biscoitos artesanais."
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Suas Reservas",
+              "url": "https://validamais.com.br/reservas",
+              "description": "Histórico de compras, retirada presencial e o economiómetro de dinheiro salvo."
+            },
+            {
+              "@type": "ListItem",
+              "position": 4,
+              "name": "Estabelecimentos Parceiros",
+              "url": "https://validamais.com.br/lojas",
+              "description": "Lista de mercadinhos, conveniências e supermercados parceiros de economia na vizinhança."
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
-    <div id="root">
-      <div id="initial-loader">
-        <div class="il-badge"></div>
-        <div class="il-text">Inicializando Valida<b>Mais</b>...</div>
-      </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -16,9 +16,13 @@ export interface Usuario {
   email: string;
   nome: string;
   role: UserRole;
-  telefone?: string;
+  cnpj?: string;
   senha?: string;
   criadoEm: any; // Firestore Timestamp
+  destaquePlano?: string;       // e.g. 'bronze' | 'ouro' | 'clube'
+  destaqueAtivo?: boolean;
+  destaqueMensagem?: string;
+  destaqueBannerUrl?: string;
 }
 
 export interface Produto {
@@ -91,6 +95,13 @@ export interface Favorito {
   id?: string;
   usuarioId: string;
   produtoId: string;
+  criadoEm: any; // ISO Date string or Firestore Timestamp
+}
+
+export interface FavoritoLoja {
+  id?: string;
+  usuarioId: string;
+  nomeLoja: string;
   criadoEm: any; // ISO Date string or Firestore Timestamp
 }
 

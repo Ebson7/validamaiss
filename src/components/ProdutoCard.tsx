@@ -13,7 +13,16 @@ interface ProdutoCardProps {
 }
 
 export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
-  const { navigateTo, user, avaliacoes, showAlert, isFavoritado, toggleFavorito } = useApp();
+  const { 
+    navigateTo, 
+    user, 
+    avaliacoes, 
+    showAlert, 
+    isFavoritado, 
+    toggleFavorito,
+    isLojaFavoritada,
+    toggleFavoritoLoja
+  } = useApp();
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -216,9 +225,23 @@ ${shareUrl}`;
           {/* Shop and Category Info */}
           <div className="flex items-center justify-between text-xs text-gray-500 mb-2 gap-2">
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1 font-semibold text-gray-700 truncate">
-                <Store className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFavoritoLoja(produto.nomeLoja);
+                }}
+                className="flex items-center gap-1 font-semibold text-gray-700 truncate cursor-pointer hover:text-rose-600 transition-colors group/store-btn"
+                title={isLojaFavoritada(produto.nomeLoja) ? "Remover estabelecimento dos favoritos" : "Favoritar este estabelecimento"}
+              >
+                <Store className="w-3.5 h-3.5 text-emerald-600 shrink-0 group-hover/store-btn:text-rose-500 transition-colors" />
                 <span className="truncate">{produto.nomeLoja}</span>
+                <Heart 
+                  className={`w-3.5 h-3.5 shrink-0 ml-0.5 transition-all ${
+                    isLojaFavoritada(produto.nomeLoja) 
+                      ? 'text-rose-500 fill-rose-500 scale-110' 
+                      : 'text-gray-300 group-hover/store-btn:text-rose-200'
+                  }`} 
+                />
               </div>
               {mediaAvaliacao && (
                 <div className="flex items-center gap-0.5 text-[10px] text-amber-600 font-bold font-mono mt-0.5">
@@ -249,13 +272,17 @@ ${shareUrl}`;
                 }}
                 className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
                   produto.id && isFavoritado(produto.id)
-                    ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-xs hover:bg-rose-100 hover:border-rose-300'
-                    : 'bg-white/50 border-gray-200/60 text-gray-400 hover:text-rose-605 hover:bg-rose-50 hover:border-rose-150'
+                    ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-xs scale-105 hover:bg-rose-100'
+                    : 'bg-white/50 border-gray-200/60 text-gray-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-150'
                 }`}
                 title={produto.id && isFavoritado(produto.id) ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}
               >
                 <Heart 
-                  className={`w-3.5 h-3.5 ${produto.id && isFavoritado(produto.id) ? 'fill-current' : ''}`} 
+                  className={`w-3.5 h-3.5 transition-all ${
+                    produto.id && isFavoritado(produto.id) 
+                      ? 'text-rose-600 fill-rose-600 scale-110' 
+                      : 'text-gray-400'
+                  }`} 
                 />
               </button>
 
