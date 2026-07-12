@@ -266,6 +266,12 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
       return;
     }
 
+    const hasImage = imagens.some(img => img !== '') || imageUrl.trim() !== '';
+    if (!hasImage) {
+      alert('A imagem do produto é obrigatória');
+      return;
+    }
+
     const cleanImagens = imagens.filter(img => img !== '');
     const firstImage = cleanImagens[0] || imageUrl.trim() || undefined;
 
@@ -618,11 +624,14 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
           </div>
 
           <div className="border-t border-gray-100 pt-3">
-            <label className="block text-[10px] font-bold text-gray-400 font-mono uppercase mb-1">Ou edite o Link da Primeira Foto (URL)</label>
+            <label className="block text-[10px] font-bold text-gray-400 font-mono uppercase mb-1">
+              Ou edite o Link da Primeira Foto (URL) <span className="text-rose-500">*</span>
+            </label>
             <div className="relative">
               <ImageIcon className="absolute left-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
               <input
                 type="text"
+                required
                 value={imagens[0] || imageUrl}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -637,6 +646,9 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
                 className="w-full text-xs ps-8 pe-3 py-2 bg-white/40 border border-white/50 rounded-lg focus:border-emerald-500 focus:bg-white/75 focus:outline-none transition-all"
               />
             </div>
+            <p className="text-[10px] text-gray-400 mt-1 font-mono">
+              URL obrigatória — produtos sem imagem têm menor conversão
+            </p>
           </div>
         </div>
       </div>

@@ -47,13 +47,17 @@ export const ProdutosValida: React.FC = () => {
 
   // Filter application pipeline
   const filteredProducts = produtos.filter((product) => {
-    // 1. Search filter (text search)
+    // 0. Only show available products
+    if (product.status !== 'disponivel') return false;
+
+    // 1. Search filter — matches product name, store name, description or category
     if (searchQuery) {
       const matchText = searchQuery.toLowerCase();
       const nameMatch = product.nomeProduto.toLowerCase().includes(matchText);
+      const storeMatch = product.nomeLoja.toLowerCase().includes(matchText);
       const descMatch = product.descricao?.toLowerCase().includes(matchText) || false;
       const catMatch = product.categoria.toLowerCase().includes(matchText);
-      if (!nameMatch && !descMatch && !catMatch) return false;
+      if (!nameMatch && !storeMatch && !descMatch && !catMatch) return false;
     }
 
     // 2. Category filter

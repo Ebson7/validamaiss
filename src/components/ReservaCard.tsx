@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Reserva } from '../types';
-import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, DollarSign, Star } from 'lucide-react';
+import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, DollarSign, Star, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface ReservaCardProps {
@@ -85,26 +85,34 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
   };
 
   const getStatusBadge = (status: Reserva['status']) => {
-    const configs = {
-      pendente: {
-        label: 'Aguardando Retirada',
-        styles: 'bg-amber-100 text-amber-800 border-amber-200 shadow-xs'
-      },
-      retirado: {
-        label: 'Retirado / Finalizado',
-        styles: 'bg-emerald-100 text-emerald-800 border-emerald-200'
-      },
-      cancelado: {
-        label: 'Cancelado',
-        styles: 'bg-gray-100 text-gray-700 border-gray-200'
-      }
-    };
-    const current = configs[status] || configs.pendente;
-    return (
-      <span className={`text-xs font-bold leading-none px-3 py-1 rounded-full border uppercase tracking-wider font-mono ${current.styles}`}>
-        {current.label}
-      </span>
-    );
+    if (status === 'pendente') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold leading-none px-3 py-1.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200 shadow-xs">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+          </span>
+          <span className="uppercase tracking-wider font-mono">Aguardando Retirada</span>
+        </span>
+      );
+    }
+    if (status === 'retirado') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold leading-none px-3 py-1.5 rounded-full border bg-emerald-100 text-emerald-800 border-emerald-200">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span className="uppercase tracking-wider font-mono">Retirada Confirmada</span>
+        </span>
+      );
+    }
+    if (status === 'cancelado') {
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold leading-none px-3 py-1.5 rounded-full border bg-gray-100 text-gray-500 border-gray-200">
+          <XCircle className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+          <span className="line-through uppercase tracking-wider font-mono">Cancelado</span>
+        </span>
+      );
+    }
+    return null;
   };
 
   const handleUpdate = async (status: 'retirado' | 'cancelado') => {
@@ -124,6 +132,25 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
       setUpdating(false);
     }
   };
+
+  // Cancellation 2-hour window
+  let createdAt: Date | null = null;
+  try {
+    createdAt = reserva.criadoEm?.toDate
+      ? reserva.criadoEm.toDate()
+      : reserva.criadoEm
+      ? new Date(reserva.criadoEm)
+      : null;
+  } catch {}
+  const cancelDeadline = createdAt ? new Date(createdAt.getTime() + 2 * 60 * 60 * 1000) : null;
+  const canCancelByTime = cancelDeadline ? new Date() < cancelDeadline : true;
+  const msRemaining = cancelDeadline ? Math.max(0, cancelDeadline.getTime() - Date.now()) : 0;
+  const totalMinsRemaining = Math.floor(msRemaining / 60000);
+  const cancelHrs = Math.floor(totalMinsRemaining / 60);
+  const cancelMinsOnly = totalMinsRemaining % 60;
+  const cancelDeadlineStr = cancelDeadline
+    ? cancelDeadline.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : '';
 
   return (
     <div className="flex flex-col gap-2 w-full">
@@ -203,14 +230,33 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => handleUpdate('cancelado')}
-                  disabled={updating}
-                  className="border border-rose-200 text-rose-700 hover:bg-rose-50 font-sans text-xs font-bold px-4 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1 flex-1 sm:flex-initial disabled:opacity-50"
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  Cancelar Reserva
-                </button>
+                <div className="flex flex-col gap-1.5 w-full">
+                  {canCancelByTime ? (
+                    <>
+                      <button
+                        onClick={() => handleUpdate('cancelado')}
+                        disabled={updating}
+                        className="border border-rose-200 text-rose-700 hover:bg-rose-50 font-sans text-xs font-bold px-4 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1 flex-1 sm:flex-initial disabled:opacity-50"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        Cancelar Reserva
+                      </button>
+                      {cancelDeadline && (
+                        <span className="text-[10px] text-amber-600 font-mono font-semibold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block shrink-0" />
+                          Pode cancelar até {cancelDeadlineStr}
+                          {cancelHrs > 0 && ` (${cancelHrs}h ${cancelMinsOnly}m restantes)`}
+                          {cancelHrs === 0 && totalMinsRemaining > 0 && ` (${cancelMinsOnly}m restantes)`}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-[10px] text-gray-400 font-mono font-semibold flex items-center gap-1 py-1">
+                      <XCircle className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                      Prazo de cancelamento encerrado
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           )}

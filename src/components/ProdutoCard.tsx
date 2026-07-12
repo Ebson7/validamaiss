@@ -195,6 +195,21 @@ ${shareUrl}`;
         )}
       </div>
 
+      {/* Urgency Counter Banner — between image and card body */}
+      {!isEsgotado && !expiry.isExpired && expiry.days <= 3 && (
+        <div
+          className={`px-4 py-2 text-xs font-black flex items-center justify-center gap-1.5 tracking-wide ${
+            expiry.days === 0
+              ? 'bg-rose-600 text-white animate-pulse'
+              : 'bg-amber-100 text-amber-900'
+          }`}
+        >
+          {expiry.days === 0 && '⚠️ Vence Hoje!'}
+          {expiry.days === 1 && '⏰ Vence Amanhã'}
+          {expiry.days >= 2 && `🔥 ${expiry.days} dias restantes`}
+        </div>
+      )}
+
       {/* Card Contents */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
@@ -348,8 +363,13 @@ ${shareUrl}`;
           <div className="flex flex-col items-end text-right">
             {!isEsgotado && !expiry.isExpired ? (
               <>
-                <span className="text-[10px] font-semibold text-gray-600">
-                  {totalAvailable} unidades resta{totalAvailable === 1 ? 'm' : 'm'}
+                <span
+                  className={`text-xs font-bold ${
+                    totalAvailable <= 5 ? 'text-rose-600' : 'text-gray-600'
+                  }`}
+                >
+                  {totalAvailable <= 5 && '⚡ '}
+                  {totalAvailable} unidades restantes
                 </span>
                 <button
                   id={`btn_reserva_link_${produto.id}`}

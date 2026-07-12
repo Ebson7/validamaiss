@@ -5,20 +5,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  ShoppingBag, 
-  LogOut, 
-  ClipboardList, 
-  AppWindow, 
-  ShoppingCart, 
-  Bell, 
-  Settings, 
-  Trash2, 
-  BellOff, 
-  MapPin, 
-  Sparkles, 
-  X, 
-  RefreshCw 
+import {
+  ShoppingBag,
+  LogOut,
+  ClipboardList,
+  AppWindow,
+  ShoppingCart,
+  Bell,
+  Settings,
+  Trash2,
+  BellOff,
+  MapPin,
+  Sparkles,
+  X,
+  RefreshCw,
+  Home,
+  LayoutDashboard,
+  Package,
+  User
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -371,66 +375,147 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Routing Menu (Bottom Nav Bar for high responsiveness on mobile viewport) */}
-      <div className="md:hidden border-t border-gray-100 bg-white fixed bottom-0 left-0 right-0 z-50 flex justify-around py-2.5 px-4 shadow-lg">
-        {(!user || user.role === 'user') && (
-          <>
-            <button
-              onClick={() => navigateTo('home')}
-              className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
-                currentScreen === 'home' ? 'text-emerald-600' : 'text-gray-400'
-              }`}
-            >
-              <ShoppingBag className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Home</span>
-            </button>
-            <button
-              onClick={() => navigateTo('produtos')}
-              className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
-                currentScreen === 'produtos' || currentScreen === 'produto-detalhe' ? 'text-emerald-600' : 'text-gray-400'
-              }`}
-            >
-              <ShoppingBag className="w-5 h-5 text-amber-500" />
-              <span className="text-[10px] font-medium">Produtos</span>
-            </button>
-          </>
-        )}
+      {/* ── Mobile Bottom Navigation Bar ── */}
+      <nav
+        id="mobile_bottom_nav"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] pb-2"
+      >
+        <div className="flex justify-around items-stretch px-1 pt-1">
 
-        {user && user.role === 'user' && (
-          <button
-            onClick={() => navigateTo('minhas-reservas')}
-            className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
-              currentScreen === 'minhas-reservas' ? 'text-emerald-600' : 'text-gray-400'
-            }`}
-          >
-            <ShoppingCart className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Reservas</span>
-          </button>
-        )}
+          {/* Consumer / guest buttons */}
+          {(!user || user.role === 'user') && (
+            <>
+              <button
+                onClick={() => navigateTo('home')}
+                aria-label="Home"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'home'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <Home className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-none">Home</span>
+              </button>
 
-        {user && user.role === 'lojista' && (
-          <>
+              <button
+                onClick={() => navigateTo('produtos')}
+                aria-label="Produtos"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'produtos' || currentScreen === 'produto-detalhe'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <ShoppingBag className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-none">Produtos</span>
+              </button>
+
+              {/* Minhas Reservas — only when logged in */}
+              {user && (
+                <button
+                  onClick={() => navigateTo('minhas-reservas')}
+                  aria-label="Minhas Reservas"
+                  className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                    currentScreen === 'minhas-reservas'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  <span className="text-[10px] font-semibold leading-none">Reservas</span>
+                </button>
+              )}
+
+              {/* Login / Conta */}
+              <button
+                onClick={() => { if (!user) navigateTo('login'); }}
+                aria-label={user ? 'Conta' : 'Login'}
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'login' || currentScreen === 'cadastro'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <User className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-none">{user ? 'Conta' : 'Login'}</span>
+              </button>
+            </>
+          )}
+
+          {/* CEO shortcut — shown alongside lojista/admin tabs */}
+          {user && (user.role === 'lojista' || user.role === 'admin' || user.email === 'ebsonsilva7@gmail.com') && (
             <button
-              onClick={() => navigateTo('admin-dashboard')}
-              className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
-                currentScreen === 'admin-dashboard' ? 'text-amber-600' : 'text-gray-400'
+              onClick={() => navigateTo('ceo-dashboard')}
+              aria-label="Painel CEO"
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                currentScreen === 'ceo-dashboard'
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-gray-400 hover:text-gray-600'
               }`}
             >
-              <AppWindow className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Painel</span>
+              <Sparkles className={`w-5 h-5 ${currentScreen === 'ceo-dashboard' ? 'animate-pulse' : ''}`} />
+              <span className="text-[10px] font-bold leading-none">CEO</span>
             </button>
-            <button
-              onClick={() => navigateTo('admin-reservas')}
-              className={`flex flex-col items-center justify-center text-center gap-1 flex-1 ${
-                currentScreen === 'admin-reservas' ? 'text-amber-600' : 'text-gray-400'
-              }`}
-            >
-              <ClipboardList className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Reservas</span>
-            </button>
-          </>
-        )}
-      </div>
+          )}
+
+          {/* Lojista / Admin tabs */}
+          {user && (user.role === 'lojista' || user.role === 'admin') && (
+            <>
+              <button
+                onClick={() => navigateTo('admin-dashboard')}
+                aria-label="Painel Admin"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'admin-dashboard'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-none">Painel</span>
+              </button>
+
+              <button
+                onClick={() => navigateTo('admin-produtos')}
+                aria-label="Gerenciar Produtos"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'admin-produtos' ||
+                  currentScreen === 'admin-produtos-novo' ||
+                  currentScreen === 'admin-produtos-editar'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <Package className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-none">Produtos</span>
+              </button>
+
+              <button
+                onClick={() => navigateTo('admin-reservas')}
+                aria-label="Reservas Recebidas"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'admin-reservas'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <ClipboardList className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-none">Reservas</span>
+              </button>
+
+              <button
+                onClick={logoutUser}
+                aria-label="Sair / Conta"
+                className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all text-gray-400 hover:text-rose-500"
+              >
+                <User className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-none">Conta</span>
+              </button>
+            </>
+          )}
+
+        </div>
+      </nav>
 
       {/* PUSH PREFERENCES POPUP MODAL */}
       {showPrefs && (
