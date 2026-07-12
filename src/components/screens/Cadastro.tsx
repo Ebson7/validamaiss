@@ -160,6 +160,52 @@ export const CadastroValida: React.FC = () => {
               <p className="text-sm text-gray-500 font-medium mt-1">Junte-se e comece a economizar hoje</p>
             </div>
 
+            {/* Role Selection — primeiro passo do cadastro */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-500 font-mono uppercase tracking-wide">Tipo de conta</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRole('user')}
+                  className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col gap-2 ${
+                    role === 'user'
+                      ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/10'
+                      : 'border-gray-200 bg-white/40 hover:border-gray-300'
+                  }`}
+                >
+                  <ShoppingBag className={`w-5 h-5 ${role === 'user' ? 'text-emerald-600' : 'text-gray-400'}`} />
+                  <div>
+                    <span className={`text-xs font-black block ${role === 'user' ? 'text-emerald-800' : 'text-gray-700'}`}>
+                      Consumidor
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-medium leading-tight">
+                      Comprar com desconto
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRole('lojista')}
+                  className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col gap-2 ${
+                    role === 'lojista'
+                      ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/10'
+                      : 'border-gray-200 bg-white/40 hover:border-gray-300'
+                  }`}
+                >
+                  <Store className={`w-5 h-5 ${role === 'lojista' ? 'text-amber-600' : 'text-gray-400'}`} />
+                  <div>
+                    <span className={`text-xs font-black block ${role === 'lojista' ? 'text-amber-800' : 'text-gray-700'}`}>
+                      Lojista
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-medium leading-tight">
+                      Cadastrar meu mercado
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* Google Sign-Up */}
             {typeof window !== 'undefined' && window.self === window.top && (
               <button
@@ -369,52 +415,6 @@ export const CadastroValida: React.FC = () => {
                     <AlertCircle className="w-3 h-3" /> As senhas não coincidem
                   </p>
                 )}
-              </div>
-
-              {/* Role Selection */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 font-mono uppercase tracking-wide">Tipo de conta</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRole('user')}
-                    className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col gap-2 ${
-                      role === 'user'
-                        ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/10'
-                        : 'border-gray-200 bg-white/40 hover:border-gray-300'
-                    }`}
-                  >
-                    <ShoppingBag className={`w-5 h-5 ${role === 'user' ? 'text-emerald-600' : 'text-gray-400'}`} />
-                    <div>
-                      <span className={`text-xs font-black block ${role === 'user' ? 'text-emerald-800' : 'text-gray-700'}`}>
-                        Consumidor
-                      </span>
-                      <span className="text-[10px] text-gray-500 font-medium leading-tight">
-                        Comprar com desconto
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setRole('lojista')}
-                    className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all flex flex-col gap-2 ${
-                      role === 'lojista'
-                        ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/10'
-                        : 'border-gray-200 bg-white/40 hover:border-gray-300'
-                    }`}
-                  >
-                    <Store className={`w-5 h-5 ${role === 'lojista' ? 'text-amber-600' : 'text-gray-400'}`} />
-                    <div>
-                      <span className={`text-xs font-black block ${role === 'lojista' ? 'text-amber-800' : 'text-gray-700'}`}>
-                        Lojista
-                      </span>
-                      <span className="text-[10px] text-gray-500 font-medium leading-tight">
-                        Cadastrar meu mercado
-                      </span>
-                    </div>
-                  </button>
-                </div>
               </div>
 
               <button
