@@ -121,26 +121,22 @@ export const AdminDashboardValida: React.FC = () => {
   let pendingValue = 0;        // Value reserved/pending in progress
   let avoidedLossValue = 0;    // Original shelf value of the items that were successfully retrieved (prevented total waste cost)
 
-  allReservas.forEach((res) => {
-    // Filter dynamically by products belonging to this admin
-    const hasProduct = myProducts.some(p => p.id === res.produtoId || p.nomeProduto === res.nomeProduto);
-    const belongsToLoja = res.nomeLoja === user?.nome || (user?.nome && res.nomeLoja?.toLowerCase().includes(user.nome.toLowerCase()));
-    
-    if (hasProduct || belongsToLoja) {
-      const prod = produtos.find(p => p.id === res.produtoId);
-      // If we can't find the product details, fall back to calculating original price relative to the discount
-      const originalUnitPrice = prod ? prod.precoOriginal : (res.precoTotal / res.quantidade) * 2.22;
+  const myProductIds = new Set(myProducts.map(p => p.id).filter(Boolean) as string[]);
 
-      if (res.status === 'pendente') {
-        pending++;
-        pendingValue += res.precoTotal;
-      }
-      if (res.status === 'retirado') {
-        withdrawn++;
-        savedCount += res.quantidade;
-        recoveredValue += res.precoTotal;
-        avoidedLossValue += (originalUnitPrice * res.quantidade);
-      }
+  allReservas.forEach((res) => {
+    if (!myProductIds.has(res.produtoId)) return;
+    const prod = produtos.find(p => p.id === res.produtoId);
+    const originalUnitPrice = prod ? prod.precoOriginal : (res.precoTotal / res.quantidade) * 2.22;
+
+    if (res.status === 'pendente') {
+      pending++;
+      pendingValue += res.precoTotal;
+    }
+    if (res.status === 'retirado') {
+      withdrawn++;
+      savedCount += res.quantidade;
+      recoveredValue += res.precoTotal;
+      avoidedLossValue += (originalUnitPrice * res.quantidade);
     }
   });
 

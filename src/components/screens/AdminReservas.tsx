@@ -9,7 +9,11 @@ import { ReservaCard } from '../ReservaCard';
 import { Loader2, ClipboardList, Info } from 'lucide-react';
 
 export const AdminReservasValida: React.FC = () => {
-  const { showAlert, reservas, reservasLoading: loading, updateReservationStatus, cancelReservation } = useApp();
+  const { showAlert, reservas, reservasLoading: loading, updateReservationStatus, cancelReservation, user, produtos } = useApp();
+
+  const isPlatformAdmin = user?.email === 'ebsonsilva7@gmail.com';
+  const myProductIds = new Set(produtos.filter(p => p.adminId === user?.uid).map(p => p.id));
+  const myReservas = isPlatformAdmin ? reservas : reservas.filter(r => myProductIds.has(r.produtoId));
 
   // Admin changing status: either confirming physical collection (withdraw) or canceling a voided booking
   const handleAdminStatusUpdate = async (reservaId: string, newStatus: 'retirado' | 'cancelado') => {
@@ -37,7 +41,7 @@ export const AdminReservasValida: React.FC = () => {
           <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
           <span className="text-sm font-semibold text-gray-500 font-mono">Buscando chamados...</span>
         </div>
-      ) : reservas.length > 0 ? (
+      ) : myReservas.length > 0 ? (
         <div className="space-y-4 max-w-4xl">
           <div className="glass border-white/40 rounded-2xl p-4 bg-white/40 flex gap-3 text-xs leading-relaxed text-slate-700">
             <Info className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -48,7 +52,7 @@ export const AdminReservasValida: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {reservas.map((res) => (
+            {myReservas.map((res) => (
               <ReservaCard
                 key={res.id}
                 reserva={res}
