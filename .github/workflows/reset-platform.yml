@@ -1,0 +1,39 @@
+name: Reset Platform Data (DESTRUTIVO)
+
+# Executado MANUALMENTE pela aba Actions. Apaga contas de login e/ou dados do
+# Firestore em produção. Requer digitar a frase de confirmação exata.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Digite APAGAR-TUDO para confirmar (irreversível). Qualquer outra coisa = simulação (dry-run).'
+        required: true
+        default: 'simular'
+      scope:
+        description: 'O que apagar'
+        required: true
+        type: choice
+        default: auth-and-data
+        options:
+          - auth-and-data
+          - data-only
+          - auth-only
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # firebase-admin é instalado só para este job (não afeta o app).
+      - run: npm install --no-save firebase-admin@^12
+
+      - name: Executar reset
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CONFIRM: ${{ inputs.confirm }}
+          SCOPE: ${{ inputs.scope }}
+        run: node scripts/reset-platform.mjs
