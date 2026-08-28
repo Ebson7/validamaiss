@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Mail, Lock, LogIn, Eye, EyeOff, Leaf, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Eye, EyeOff, Leaf, ShieldCheck, MapPin, Clock, Sparkles } from 'lucide-react';
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -48,87 +48,115 @@ export const LoginValida: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-4xl flex rounded-3xl overflow-hidden shadow-xl border border-white/60">
+    <div className="flex items-center justify-center py-4 sm:py-8">
+      <div className="w-full max-w-5xl grid lg:grid-cols-[1.05fr_1fr] rounded-[2rem] overflow-hidden shadow-2xl shadow-emerald-900/10 border border-white/60 bg-white">
 
-        {/* Left Panel — Brand (desktop only) */}
-        <div className="hidden md:flex flex-col justify-between bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950 text-white p-10 w-5/12 relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-56 h-56 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute left-0 bottom-0 w-40 h-40 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none" />
+        {/* ─────────────── Brand hero ─────────────── */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white px-8 py-10 sm:px-10 sm:py-12 flex flex-col justify-between gap-8 min-h-[240px]">
+          {/* ambient glows */}
+          <div className="absolute -right-16 -top-16 w-72 h-72 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -left-10 bottom-0 w-56 h-56 bg-lime-300/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute inset-0 opacity-[0.07] pointer-events-none"
+               style={{ backgroundImage: 'radial-gradient(circle at 20% 30%, white 1px, transparent 1px)', backgroundSize: '22px 22px' }} />
 
-          <div className="space-y-4 relative z-10">
-            <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 px-3.5 py-1.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-widest border border-emerald-500/25">
-              <Leaf className="w-3 h-3" />
+          {/* top: brand + headline */}
+          <div className="relative z-10 space-y-5">
+            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border border-white/20">
+              <Leaf className="w-3.5 h-3.5 text-lime-300" />
               ValidaMais
             </div>
-            <h1 className="text-3xl font-black leading-snug">
+            <h1 className="text-3xl sm:text-4xl font-black leading-[1.1] tracking-tight max-w-sm">
               Salve alimentos,<br />
-              <span className="text-emerald-400">economize muito.</span>
+              <span className="text-lime-300">pague muito menos.</span>
             </h1>
-            <p className="text-xs text-emerald-100/75 leading-relaxed font-sans max-w-xs">
-              Conectamos você a mercados locais que vendem lotes excelentes com até <strong className="text-emerald-300">70% de desconto</strong> antes do vencimento.
+            <p className="text-sm text-emerald-50/85 leading-relaxed max-w-xs font-medium">
+              Reserve lotes de mercados locais com até <strong className="text-white">70% de desconto</strong> e ajude a combater o desperdício.
             </p>
           </div>
 
-          <div className="space-y-4 relative z-10">
-            {[
-              { icon: '🛒', title: 'Reserve Online', desc: 'Escolha e reserve sem pagamento antecipado' },
-              { icon: '🏪', title: 'Retire na Loja', desc: 'Apresente o e-mail de confirmação no balcão' },
-              { icon: '💳', title: 'Pague no Caixa', desc: 'Finalize com o método de sua escolha' },
-            ].map((step) => (
-              <div key={step.title} className="flex items-center gap-3.5">
-                <div className="w-9 h-9 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-base shrink-0">
-                  {step.icon}
+          {/* floating "sacola surpresa" card */}
+          <div className="relative z-10">
+            <div className="bg-white rounded-3xl p-4 shadow-xl shadow-emerald-950/30 max-w-[19rem] rotate-[-1.5deg] hover:rotate-0 transition-transform duration-300">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-100 to-emerald-100 flex items-center justify-center text-2xl shrink-0">
+                  🥐
                 </div>
-                <div>
-                  <span className="text-[11px] font-black text-white block leading-none">{step.title}</span>
-                  <span className="text-[10px] text-emerald-200/60 font-medium mt-0.5 block">{step.desc}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-black text-gray-900 truncate">Padaria Delícia</span>
+                    <span className="text-[10px] font-black text-white bg-emerald-600 px-2 py-0.5 rounded-full shrink-0">-65%</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400 font-semibold">
+                    <span className="inline-flex items-center gap-0.5"><MapPin className="w-3 h-3" /> 1,2 km</span>
+                    <span className="inline-flex items-center gap-0.5"><Clock className="w-3 h-3" /> até 19h</span>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-1.5">
+                    <span className="text-lg font-black text-emerald-600 leading-none">R$ 9,90</span>
+                    <span className="text-[11px] text-gray-400 line-through font-semibold">R$ 28,00</span>
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
+          </div>
+
+          {/* bottom: trust stat */}
+          <div className="relative z-10 hidden sm:flex items-center gap-6 text-emerald-50/90">
+            <div>
+              <div className="text-2xl font-black text-white leading-none">+2 mil</div>
+              <div className="text-[11px] font-semibold text-emerald-100/70 mt-1">lotes salvos</div>
+            </div>
+            <div className="w-px h-9 bg-white/15" />
+            <div>
+              <div className="text-2xl font-black text-white leading-none">70%</div>
+              <div className="text-[11px] font-semibold text-emerald-100/70 mt-1">de desconto médio</div>
+            </div>
           </div>
         </div>
 
-        {/* Right Panel — Form */}
-        <div className="flex-1 bg-white/80 backdrop-blur-sm p-8 md:p-10 flex flex-col justify-center">
+        {/* ─────────────── Form panel ─────────────── */}
+        <div className="px-7 py-9 sm:px-10 sm:py-12 flex flex-col justify-center">
           <div className="max-w-sm mx-auto w-full space-y-6">
 
             {/* Header */}
-            <div>
-              <h2 className="text-2xl font-black text-gray-900 leading-tight">Bem-vindo de volta</h2>
-              <p className="text-sm text-gray-500 font-medium mt-1">Entre na sua conta para continuar</p>
+            <div className="space-y-1">
+              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight tracking-tight">
+                Bem-vindo de volta 👋
+              </h2>
+              <p className="text-sm text-gray-500 font-medium">
+                Entre para reservar suas sacolas surpresa.
+              </p>
             </div>
 
-            {/* Google Sign-In */}
+            {/* Google Sign-In (pill) */}
             {typeof window !== 'undefined' && window.self === window.top && (
               <button
                 type="button"
                 disabled={loading}
                 onClick={handleGoogleSignIn}
-                className="w-full py-3 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50/80 text-gray-700 text-sm font-semibold rounded-xl shadow-xs hover:shadow-sm cursor-pointer transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full py-3.5 bg-white border-2 border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/40 text-gray-700 text-sm font-bold rounded-full shadow-sm hover:shadow-md cursor-pointer transition-all flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
               >
                 <GoogleIcon />
-                Entrar com Google
+                Continuar com Google
               </button>
             )}
 
             {/* Separator */}
             <div className="relative flex items-center gap-4">
               <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider shrink-0">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest shrink-0">
                 ou com e-mail
               </span>
               <div className="flex-1 h-px bg-gray-200" />
             </div>
 
             {/* Email/Password Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500 font-mono uppercase tracking-wide">
+                <label className="text-xs font-bold text-gray-600 tracking-wide pl-1">
                   E-mail
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="email"
                     required
@@ -136,17 +164,17 @@ export const LoginValida: React.FC = () => {
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-sm pl-10 pr-4 py-3 border border-gray-200 bg-gray-50 focus:bg-white rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 transition-all"
+                    className="w-full text-sm pl-11 pr-4 py-3.5 border-2 border-gray-100 bg-gray-50/70 focus:bg-white rounded-2xl focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500 font-mono uppercase tracking-wide">
+                <label className="text-xs font-bold text-gray-600 tracking-wide pl-1">
                   Senha
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
@@ -154,13 +182,13 @@ export const LoginValida: React.FC = () => {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full text-sm pl-10 pr-11 py-3 border border-gray-200 bg-gray-50 focus:bg-white rounded-xl focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 transition-all"
+                    className="w-full text-sm pl-11 pr-12 py-3.5 border-2 border-gray-100 bg-gray-50/70 focus:bg-white rounded-2xl focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
                   />
                   <button
                     type="button"
                     tabIndex={-1}
                     onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-600 transition-colors cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -170,36 +198,40 @@ export const LoginValida: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-1"
+                className="group w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black rounded-full shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-60 active:scale-[0.98] mt-1"
               >
                 {loading ? (
-                  <span className="font-mono">Entrando...</span>
+                  <span>Entrando...</span>
                 ) : (
                   <>
-                    <LogIn className="w-4 h-4" />
-                    Entrar na Plataforma
+                    Entrar na plataforma
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                   </>
                 )}
               </button>
             </form>
 
             {/* Security note */}
-            <div className="flex items-center justify-center gap-1.5 text-[10px] text-gray-400 font-medium">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 font-semibold">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
               Conexão segura e dados criptografados
             </div>
 
             {/* Footer links */}
-            <div className="pt-3 border-t border-gray-100 flex flex-col items-center gap-2.5 text-center">
-              <button
-                onClick={() => navigateTo('cadastro')}
-                className="text-xs text-emerald-600 hover:text-emerald-700 font-bold transition-colors cursor-pointer"
-              >
-                Primeira vez? Crie uma conta gratuita
-              </button>
+            <div className="pt-4 border-t border-gray-100 text-center space-y-3">
+              <p className="text-sm text-gray-500 font-medium">
+                Primeira vez por aqui?{' '}
+                <button
+                  onClick={() => navigateTo('cadastro')}
+                  className="text-emerald-600 hover:text-emerald-700 font-black transition-colors cursor-pointer inline-flex items-center gap-1"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Criar conta grátis
+                </button>
+              </p>
               <button
                 onClick={() => navigateTo('home')}
-                className="text-[10px] text-gray-400 hover:text-gray-600 font-medium transition-colors cursor-pointer"
+                className="text-xs text-gray-400 hover:text-gray-600 font-semibold transition-colors cursor-pointer"
               >
                 Voltar para a vitrine pública
               </button>
