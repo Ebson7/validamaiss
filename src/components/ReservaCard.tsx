@@ -6,8 +6,9 @@
 import React, { useState, useMemo } from 'react';
 import qrcode from 'qrcode-generator';
 import { Reserva } from '../types';
-import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, Phone, DollarSign, Star, CheckCircle2, Ticket, ShieldCheck, ShieldAlert, Copy, Check, ExternalLink } from 'lucide-react';
+import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, Phone, DollarSign, Star, CheckCircle2, Ticket, ShieldCheck, ShieldAlert, Copy, Check, ExternalLink, CreditCard, BadgeCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { isPagamentoConfigurado, iniciarPagamentoMP } from '../lib/pagamento';
 
 interface ReservaCardProps {
   reserva: Reserva;
@@ -40,7 +41,21 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
   onStatusUpdate
 }) => {
   const [updating, setUpdating] = useState(false);
-  const { avaliacoes, addAvaliacaoLoja, navigateTo } = useApp();
+  const [paying, setPaying] = useState(false);
+  const { avaliacoes, addAvaliacaoLoja, navigateTo, showAlert } = useApp();
+
+  const isPago = reserva.pagamentoStatus === 'aprovado';
+
+  const handlePagar = async () => {
+    setPaying(true);
+    try {
+      await iniciarPagamentoMP(reserva.id!);
+      // redireciona para o Mercado Pago (não retorna aqui em caso de sucesso)
+    } catch (err: any) {
+      showAlert(err?.message || 'Não foi possível iniciar o pagamento.', 'error');
+      setPaying(false);
+    }
+  };
 
   // Always have a pickup code to show/validate — stored one, or a stable fallback.
   const pickupCode = reserva.codigoRetirada || derivePickupCode(reserva.id || 'RES');
@@ -301,6 +316,14 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
           {/* Reservation Status badge */}
           {getStatusBadge(reserva.status)}
 
+          {/* Selo de pagamento aprovado */}
+          {isPago && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold leading-none px-3 py-1.5 rounded-full border bg-emerald-100 text-emerald-800 border-emerald-200">
+              <BadgeCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="uppercase tracking-wider font-mono">Pago</span>
+            </span>
+          )}
+
           {/* Interactive action controls */}
           {reserva.status === 'pendente' && (
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
@@ -360,6 +383,18 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Pagar com Mercado Pago — cliente, reserva pendente e não paga */}
+      {!isAdminView && reserva.status === 'pendente' && !isPago && isPagamentoConfigurado() && (
+        <button
+          onClick={handlePagar}
+          disabled={paying}
+          className="sm:ml-6 inline-flex items-center justify-center gap-2 bg-[#009ee3] hover:bg-[#008fcc] text-white text-sm font-black px-5 py-3 rounded-2xl shadow-sm hover:shadow-md cursor-pointer transition-all active:scale-[0.98] disabled:opacity-60"
+        >
+          <CreditCard className="w-4 h-4" />
+          {paying ? 'Redirecionando...' : 'Pagar com Mercado Pago'}
+        </button>
+      )}
 
       {/* Pickup code + QR — customer presents this at the store counter */}
       {!isAdminView && reserva.status === 'pendente' && (

@@ -59,6 +59,11 @@ export interface Reserva {
   precoTotal: number;
   status: 'pendente' | 'retirado' | 'cancelado';
   codigoRetirada?: string; // Unique pickup code presented by the customer at the store
+  // Pagamento (Mercado Pago — Checkout Pro)
+  pagamentoStatus?: 'pendente' | 'aprovado' | 'rejeitado' | 'reembolsado';
+  mpPreferenceId?: string; // Preference criada no backend
+  mpPaymentId?: string;    // Id do pagamento no Mercado Pago
+  valorPago?: number;
   criadoEm: any; // Firestore Timestamp
   atualizadoEm: any; // Firestore Timestamp
 }

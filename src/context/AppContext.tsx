@@ -18,6 +18,7 @@ import { getToken } from 'firebase/messaging';
 import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, serverTimestamp, setDoc, updateDoc, query, where } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, messaging } from '../lib/firebase';
 import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
+import { lerRetornoPagamento, limparRetornoPagamento } from '../lib/pagamento';
 import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem, Favorito, FavoritoLoja } from '../types';
 import { 
   getProducts, 
@@ -700,6 +701,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubscribe();
       clearTimeout(fallbackTimer);
     };
+  }, []);
+
+  // Retorno do Checkout do Mercado Pago (?payment=success|pending|failure)
+  useEffect(() => {
+    const ret = lerRetornoPagamento();
+    if (!ret) return;
+    if (ret.status === 'success') {
+      showAlert('Pagamento aprovado! Sua reserva está confirmada.', 'success');
+      setCurrentScreen('minhas-reservas');
+    } else if (ret.status === 'pending') {
+      showAlert('Pagamento em processamento. Avisaremos assim que for confirmado.', 'info');
+      setCurrentScreen('minhas-reservas');
+    } else {
+      showAlert('O pagamento não foi concluído. Você pode tentar novamente.', 'warning');
+    }
+    limparRetornoPagamento();
   }, []);
 
   // Login handler
