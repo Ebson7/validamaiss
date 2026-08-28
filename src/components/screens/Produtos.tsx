@@ -9,18 +9,21 @@ import { Produto } from '../../types';
 import { FiltrosProdutos } from '../FiltrosProdutos';
 import { ProdutoCard } from '../ProdutoCard';
 import { getCurrentPosition, haversineKm, Coords } from '../../lib/geo';
-import { AlertCircle, SlidersHorizontal, Loader2, Heart, Search, MapPin, Radio, Bell, BellRing, Trash2, Zap, LocateFixed } from 'lucide-react';
+import { AlertCircle, SlidersHorizontal, Loader2, Heart, Search, MapPin, Radio, Bell, BellRing, Trash2, Zap, LocateFixed, List, Map as MapIcon } from 'lucide-react';
+
+const MapaLojas = React.lazy(() => import('../MapaLojas'));
 
 export const ProdutosValida: React.FC = () => {
   const { 
     produtos, 
     categorias, 
-    produtosLoading: loading, 
-    user, 
-    isFavoritado, 
-    favoritosLojas, 
-    toggleFavoritoLoja, 
-    avaliacoes 
+    produtosLoading: loading,
+    user,
+    navigateTo,
+    isFavoritado,
+    favoritosLojas,
+    toggleFavoritoLoja,
+    avaliacoes
   } = useApp();
 
   // States of the filters
@@ -36,6 +39,7 @@ export const ProdutosValida: React.FC = () => {
   // Geolocation ("perto de você")
   const [userLoc, setUserLoc] = useState<Coords | null>(null);
   const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
+  const [viewMode, setViewMode] = useState<'lista' | 'mapa'>('lista');
 
   const handleUseMyLocation = async () => {
     setGeoStatus('loading');
@@ -201,18 +205,42 @@ export const ProdutosValida: React.FC = () => {
             </p>
           </div>
         </div>
-        <button
-          onClick={handleUseMyLocation}
-          disabled={geoStatus === 'loading'}
-          className={`shrink-0 inline-flex items-center justify-center gap-2 text-xs font-bold px-4 py-2.5 rounded-full cursor-pointer transition-all active:scale-95 disabled:opacity-60 ${
-            geoStatus === 'ok'
-              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-              : 'bg-white text-emerald-700 border-2 border-emerald-200 hover:border-emerald-300'
-          }`}
-        >
-          <LocateFixed className={`w-4 h-4 ${geoStatus === 'loading' ? 'animate-spin' : ''}`} />
-          {geoStatus === 'loading' ? 'Localizando...' : geoStatus === 'ok' ? 'Localização ativa' : 'Usar minha localização'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Toggle Lista / Mapa */}
+          <div className="flex items-center bg-white border border-emerald-200 rounded-full p-0.5">
+            <button
+              onClick={() => setViewMode('lista')}
+              aria-label="Ver em lista"
+              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-full transition-all cursor-pointer ${
+                viewMode === 'lista' ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:text-emerald-700'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" /> Lista
+            </button>
+            <button
+              onClick={() => setViewMode('mapa')}
+              aria-label="Ver no mapa"
+              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-full transition-all cursor-pointer ${
+                viewMode === 'mapa' ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:text-emerald-700'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" /> Mapa
+            </button>
+          </div>
+
+          <button
+            onClick={handleUseMyLocation}
+            disabled={geoStatus === 'loading'}
+            className={`inline-flex items-center justify-center gap-2 text-xs font-bold px-4 py-2.5 rounded-full cursor-pointer transition-all active:scale-95 disabled:opacity-60 ${
+              geoStatus === 'ok'
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                : 'bg-white text-emerald-700 border-2 border-emerald-200 hover:border-emerald-300'
+            }`}
+          >
+            <LocateFixed className={`w-4 h-4 ${geoStatus === 'loading' ? 'animate-spin' : ''}`} />
+            {geoStatus === 'loading' ? 'Localizando...' : geoStatus === 'ok' ? 'Localização ativa' : 'Usar minha localização'}
+          </button>
+        </div>
       </div>
 
       {/* Sub-tab selection bar when showOnlyFavorites is true */}
@@ -515,6 +543,20 @@ export const ProdutosValida: React.FC = () => {
             Navegar no Catálogo
           </button>
         </div>
+      ) : viewMode === 'mapa' ? (
+        <React.Suspense
+          fallback={
+            <div className="h-[65vh] min-h-[400px] rounded-3xl bg-emerald-50/40 border border-emerald-100 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+            </div>
+          }
+        >
+          <MapaLojas
+            produtos={sortedProducts}
+            userLoc={userLoc}
+            onSelect={(id) => navigateTo('produto-detalhe', id)}
+          />
+        </React.Suspense>
       ) : sortedProducts.length > 0 ? (
         <div id="products_grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedProducts.map((p) => (
