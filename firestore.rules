@@ -31,7 +31,7 @@ service cloud.firestore {
         'quantidadeDisponivel', 'quantidadeReservada', 'status', 
         'endereco', 'criadoEm'
       ]) &&
-        data.keys().size() <= 15 &&
+        data.keys().size() <= 18 &&
         data.adminId is string && data.adminId.size() <= 128 &&
         data.nomeLoja is string && data.nomeLoja.size() <= 200 &&
         data.nomeProduto is string && data.nomeProduto.size() <= 200 &&
@@ -46,16 +46,18 @@ service cloud.firestore {
         data.criadoEm != null &&
         (!data.keys().hasAny(['descricao']) || (data.descricao is string && data.descricao.size() <= 2000)) &&
         (!data.keys().hasAny(['imageUrl']) || (data.imageUrl is string && data.imageUrl.size() <= 1000000)) &&
-        (!data.keys().hasAny(['imagens']) || (data.imagens is list && data.imagens.size() <= 3));
+        (!data.keys().hasAny(['imagens']) || (data.imagens is list && data.imagens.size() <= 3)) &&
+        (!data.keys().hasAny(['lat']) || (data.lat is number)) &&
+        (!data.keys().hasAny(['lng']) || (data.lng is number));
     }
 
     function isValidReserva(data) {
       return data.keys().hasAll([
-        'usuarioId', 'usuarioEmail', 'produtoId', 'nomeProduto', 
-        'nomeLoja', 'quantidade', 'precoTotal', 'status', 
+        'usuarioId', 'usuarioEmail', 'produtoId', 'nomeProduto',
+        'nomeLoja', 'quantidade', 'precoTotal', 'status',
         'criadoEm', 'atualizadoEm'
       ]) &&
-        data.keys().size() == 10 &&
+        data.keys().size() <= 18 &&
         data.usuarioId is string && data.usuarioId.size() <= 128 &&
         data.usuarioEmail is string && data.usuarioEmail.size() <= 256 &&
         data.produtoId is string && data.produtoId.size() <= 128 &&
@@ -65,7 +67,13 @@ service cloud.firestore {
         data.precoTotal is number && data.precoTotal >= 0 &&
         data.status is string && (data.status == 'pendente' || data.status == 'retirado' || data.status == 'cancelado') &&
         data.criadoEm != null &&
-        data.atualizadoEm != null;
+        data.atualizadoEm != null &&
+        (!data.keys().hasAny(['codigoRetirada']) || (data.codigoRetirada is string && data.codigoRetirada.size() <= 32)) &&
+        (!data.keys().hasAny(['usuarioTelefone']) || (data.usuarioTelefone is string && data.usuarioTelefone.size() <= 40)) &&
+        (!data.keys().hasAny(['pagamentoStatus']) || (data.pagamentoStatus is string && data.pagamentoStatus.size() <= 20)) &&
+        (!data.keys().hasAny(['mpPreferenceId']) || (data.mpPreferenceId is string && data.mpPreferenceId.size() <= 128)) &&
+        (!data.keys().hasAny(['mpPaymentId']) || (data.mpPaymentId is string && data.mpPaymentId.size() <= 128)) &&
+        (!data.keys().hasAny(['valorPago']) || (data.valorPago is number));
     }
 
     function isValidAvaliacao(data) {
