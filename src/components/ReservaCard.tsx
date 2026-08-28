@@ -42,9 +42,13 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
 }) => {
   const [updating, setUpdating] = useState(false);
   const [paying, setPaying] = useState(false);
-  const { avaliacoes, addAvaliacaoLoja, navigateTo, showAlert } = useApp();
+  const { avaliacoes, addAvaliacaoLoja, navigateTo, showAlert, produtos } = useApp();
 
   const isPago = reserva.pagamentoStatus === 'aprovado';
+
+  // Miniatura do produto (busca no catálogo pelo id)
+  const produtoRef = produtos.find(p => p.id === reserva.produtoId);
+  const thumb = produtoRef?.imageUrl || (produtoRef?.imagens && produtoRef.imagens[0]) || '';
 
   const handlePagar = async () => {
     setPaying(true);
@@ -245,142 +249,119 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
       {/* Main card */}
       <div
         id={`reserva_card_${reserva.id}`}
-        className="glass rounded-3xl border-white/50 p-6 shadow-xs hover:shadow-md transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+        className="bg-white rounded-3xl border border-gray-100 shadow-xs hover:shadow-md transition-all overflow-hidden"
       >
-        {/* Information block */}
-        <div className="space-y-2.5 flex-1 w-full">
-          <div className="flex flex-wrap items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-emerald-600 shrink-0" />
-            <h3 className="text-base font-extrabold text-gray-900 leading-tight">
-              {reserva.nomeProduto}
-            </h3>
-            <div className="font-mono text-xs font-semibold text-gray-500 bg-white/40 px-2.5 py-1 rounded-lg border border-white/40">
-              Qtd: {reserva.quantidade}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-gray-600 font-medium">
-            {/* Dependent on role, either show Client profile details or Merchant names */}
-            {isAdminView ? (
-              <div className="flex items-center gap-1.5 text-gray-700">
-                <User className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span className="font-semibold">{reserva.usuarioEmail}</span>
-              </div>
+        <div className="flex gap-3 sm:gap-4 p-4 sm:p-5">
+          {/* Thumbnail */}
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-gray-100 border border-gray-100 shrink-0">
+            {thumb ? (
+              <img src={thumb} alt={reserva.nomeProduto} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
             ) : (
-              <div className="flex items-center gap-1.5 text-gray-700">
-                <Store className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="font-semibold">{reserva.nomeLoja}</span>
-              </div>
-            )}
-
-            {/* Reserved Date */}
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span className="font-mono">{getFormattedDate(reserva.criadoEm)}</span>
-            </div>
-
-            {/* Client phone — shown to the lojista for contact */}
-            {isAdminView && reserva.usuarioTelefone && (
-              <div className="flex items-center gap-1.5 text-gray-700">
-                <Phone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <a href={`tel:${reserva.usuarioTelefone.replace(/\D/g, '')}`} className="font-semibold hover:text-amber-600 transition-colors">
-                  {reserva.usuarioTelefone}
-                </a>
-              </div>
+              <div className="w-full h-full flex items-center justify-center text-gray-300"><ShoppingBag className="w-7 h-7" /></div>
             )}
           </div>
 
-          {/* Ver detalhes do produto — customer only */}
-          {!isAdminView && (
-            <button
-              onClick={() => navigateTo('produto-detalhe', reserva.produtoId)}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg cursor-pointer transition-all active:scale-95 mt-0.5"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              Ver detalhes do produto
-            </button>
-          )}
-
-          {/* Pricing tag */}
-          <div className="flex items-center gap-1">
-            <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="text-sm font-black text-emerald-600">
-              Total da Reserva:{' '}
-              {reserva.precoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </span>
-          </div>
-        </div>
-
-        {/* Control Actions block */}
-        <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0 w-full md:w-auto">
-          {/* Reservation Status badge */}
-          {getStatusBadge(reserva.status)}
-
-          {/* Selo de pagamento aprovado */}
-          {isPago && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold leading-none px-3 py-1.5 rounded-full border bg-emerald-100 text-emerald-800 border-emerald-200">
-              <BadgeCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="uppercase tracking-wider font-mono">Pago</span>
-            </span>
-          )}
-
-          {/* Interactive action controls */}
-          {reserva.status === 'pendente' && (
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              {isAdminView ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setCodeError('');
-                      setCodeInput('');
-                      setCodePromptOpen((v) => !v);
-                    }}
-                    disabled={updating}
-                    className="bg-emerald-600 hover:bg-emerald-700 font-sans text-xs font-bold text-white px-3.5 py-1.5 rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all flex items-center gap-1 flex-1 sm:flex-initial disabled:opacity-50"
-                  >
-                    <CheckSquare className="w-3.5 h-3.5" />
-                    Confirmar Retirada
-                  </button>
-                  <button
-                    onClick={() => handleUpdate('cancelado')}
-                    disabled={updating}
-                    className="border border-gray-200 hover:bg-rose-50 text-gray-600 hover:text-rose-600 font-sans text-xs font-bold px-3.5 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1 flex-1 sm:flex-initial disabled:opacity-50"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    Recusar/Cancelar
-                  </button>
-                </>
-              ) : (
-                <div className="flex flex-col gap-1.5 w-full">
-                  {canCancelByTime ? (
-                    <>
-                      <button
-                        onClick={() => handleUpdate('cancelado')}
-                        disabled={updating}
-                        className="border border-rose-200 text-rose-700 hover:bg-rose-50 font-sans text-xs font-bold px-4 py-1.5 rounded-xl cursor-pointer transition-all flex items-center gap-1 flex-1 sm:flex-initial disabled:opacity-50"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        Cancelar Reserva
-                      </button>
-                      {cancelDeadline && (
-                        <span className="text-[10px] text-amber-600 font-mono font-semibold flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block shrink-0" />
-                          Pode cancelar até {cancelDeadlineStr}
-                          {cancelHrs > 0 && ` (${cancelHrs}h ${cancelMinsOnly}m restantes)`}
-                          {cancelHrs === 0 && totalMinsRemaining > 0 && ` (${cancelMinsOnly}m restantes)`}
-                        </span>
-                      )}
-                    </>
+          {/* Info */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm sm:text-base font-black text-gray-900 leading-tight line-clamp-2">{reserva.nomeProduto}</h3>
+                <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-500 font-semibold min-w-0">
+                  {isAdminView ? (
+                    <><User className="w-3.5 h-3.5 text-amber-500 shrink-0" /><span className="truncate">{reserva.usuarioEmail}</span></>
                   ) : (
-                    <span className="text-[10px] text-gray-400 font-mono font-semibold flex items-center gap-1 py-1">
-                      <XCircle className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-                      Prazo de cancelamento encerrado
-                    </span>
+                    <><Store className="w-3.5 h-3.5 text-emerald-600 shrink-0" /><span className="truncate">{reserva.nomeLoja}</span></>
                   )}
                 </div>
+              </div>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                {getStatusBadge(reserva.status)}
+                {isPago && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold leading-none px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <BadgeCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span className="uppercase tracking-wider font-mono">Pago</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Meta */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] text-gray-400 font-medium">
+              <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3 shrink-0" />{getFormattedDate(reserva.criadoEm)}</span>
+              <span className="inline-flex items-center gap-1 font-mono">Qtd {reserva.quantidade}</span>
+              {isAdminView && reserva.usuarioTelefone && (
+                <a href={`tel:${reserva.usuarioTelefone.replace(/\D/g, '')}`} className="inline-flex items-center gap-1 text-amber-600 font-bold hover:text-amber-700 transition-colors">
+                  <Phone className="w-3 h-3 shrink-0" />{reserva.usuarioTelefone}
+                </a>
               )}
             </div>
-          )}
+
+            {/* Footer: total + ações */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[10px] text-gray-400 font-black uppercase tracking-wide">Total</span>
+                <span className="text-base font-black text-emerald-600">
+                  {reserva.precoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Ver detalhes — cliente */}
+                {!isAdminView && (
+                  <button
+                    onClick={() => navigateTo('produto-detalhe', reserva.produtoId)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 hover:text-emerald-700 transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Detalhes
+                  </button>
+                )}
+
+                {/* Ações — reserva pendente */}
+                {reserva.status === 'pendente' && (isAdminView ? (
+                  <>
+                    <button
+                      onClick={() => { setCodeError(''); setCodeInput(''); setCodePromptOpen((v) => !v); }}
+                      disabled={updating}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-full cursor-pointer shadow-xs active:scale-95 transition-all flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5" /> Confirmar Retirada
+                    </button>
+                    <button
+                      onClick={() => handleUpdate('cancelado')}
+                      disabled={updating}
+                      className="border border-gray-200 hover:bg-rose-50 text-gray-500 hover:text-rose-600 text-xs font-bold px-3 py-2 rounded-full cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      Recusar
+                    </button>
+                  </>
+                ) : (
+                  canCancelByTime ? (
+                    <button
+                      onClick={() => handleUpdate('cancelado')}
+                      disabled={updating}
+                      className="border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold px-3.5 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <XCircle className="w-3.5 h-3.5" /> Cancelar
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-gray-400 font-semibold inline-flex items-center gap-1">
+                      <XCircle className="w-3.5 h-3.5 text-gray-300 shrink-0" /> Prazo encerrado
+                    </span>
+                  )
+                ))}
+              </div>
+            </div>
+
+            {/* Aviso de prazo de cancelamento — cliente */}
+            {!isAdminView && reserva.status === 'pendente' && canCancelByTime && cancelDeadline && (
+              <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-1 mt-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block shrink-0" />
+                Pode cancelar até {cancelDeadlineStr}
+                {cancelHrs > 0 && ` (${cancelHrs}h ${cancelMinsOnly}m restantes)`}
+                {cancelHrs === 0 && totalMinsRemaining > 0 && ` (${cancelMinsOnly}m restantes)`}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
