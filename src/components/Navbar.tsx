@@ -367,18 +367,24 @@ export const Navbar: React.FC = () => {
                   </div>
                 )}
 
-                <div className="hidden md:flex flex-col items-end text-right">
-                  <span className="text-xs font-semibold text-gray-800">{user.nome}</span>
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full leading-none mt-0.5 text-center ${
-                    user.role === 'lojista' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                  }`}>
-                    {user.role === 'lojista' ? 'LOJISTA' : 'CLIENTE'}
-                  </span>
-                </div>
+                <button
+                  onClick={() => navigateTo('dados-cadastrais')}
+                  title="Meus dados cadastrais"
+                  className="flex items-center gap-3 cursor-pointer group rounded-full pl-1 hover:bg-emerald-50/60 transition-colors"
+                >
+                  <div className="hidden md:flex flex-col items-end text-right">
+                    <span className="text-xs font-semibold text-gray-800 group-hover:text-emerald-700 transition-colors">{user.nome}</span>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full leading-none mt-0.5 text-center ${
+                      user.role === 'lojista' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {user.role === 'lojista' ? 'LOJISTA' : 'CLIENTE'}
+                    </span>
+                  </div>
 
-                <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm shadow-xs border border-emerald-200">
-                  {user.nome.charAt(0).toUpperCase()}
-                </div>
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm shadow-xs border border-emerald-200 group-hover:border-emerald-400 group-hover:ring-2 group-hover:ring-emerald-500/15 transition-all">
+                    {user.nome.charAt(0).toUpperCase()}
+                  </div>
+                </button>
 
                 <button
                   id="navbar_logout_btn"
@@ -465,10 +471,10 @@ export const Navbar: React.FC = () => {
 
               {/* Login / Conta */}
               <button
-                onClick={() => { if (!user) navigateTo('login'); }}
+                onClick={() => navigateTo(user ? 'dados-cadastrais' : 'login')}
                 aria-label={user ? 'Conta' : 'Login'}
                 className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
-                  currentScreen === 'login' || currentScreen === 'cadastro'
+                  currentScreen === 'login' || currentScreen === 'cadastro' || currentScreen === 'dados-cadastrais'
                     ? 'bg-emerald-50 text-emerald-700'
                     : 'text-gray-400 hover:text-gray-600'
                 }`}
@@ -540,9 +546,13 @@ export const Navbar: React.FC = () => {
               </button>
 
               <button
-                onClick={logoutUser}
-                aria-label="Sair / Conta"
-                className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all text-gray-400 hover:text-rose-500"
+                onClick={() => navigateTo('dados-cadastrais')}
+                aria-label="Conta"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'dados-cadastrais'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
               >
                 <User className="w-5 h-5" />
                 <span className="text-[10px] font-semibold leading-none">Conta</span>

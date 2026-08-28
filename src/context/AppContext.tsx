@@ -45,6 +45,7 @@ export type ScreenType =
   | 'admin-produtos-editar'
   | 'admin-reservas'
   | 'admin-categorias'
+  | 'dados-cadastrais'
   | 'ceo-dashboard';
 
 interface Alert {
@@ -617,6 +618,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Guards
     if (screen === 'minhas-reservas' && !user) {
       showAlert('Você precisa fazer login para visualizar suas reservas.', 'warning');
+      setCurrentScreen('login');
+      return;
+    }
+
+    if (screen === 'dados-cadastrais' && !user) {
+      showAlert('Você precisa fazer login para acessar seus dados cadastrais.', 'warning');
       setCurrentScreen('login');
       return;
     }
