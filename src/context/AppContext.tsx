@@ -130,6 +130,23 @@ const DEFAULT_CATEGORIES: Categoria[] = [
   { id: 'cat_mercearia', nome: 'Mercearia' }
 ];
 
+// ── Admin da plataforma (desenvolvedor) — ator exclusivo ──
+// Apenas estes e-mails têm acesso ao ambiente de administração da plataforma.
+export const PLATFORM_ADMIN_EMAILS = ['ebsonsilva7@gmail.com'];
+
+export function isAdminUser(u: { email?: string; role?: string } | null | undefined): boolean {
+  if (!u) return false;
+  if (u.role === 'admin') return true;
+  return PLATFORM_ADMIN_EMAILS.includes((u.email || '').toLowerCase());
+}
+
+// Tela inicial de cada ator após o login.
+function homeScreenFor(u: { email?: string; role?: string } | null | undefined): ScreenType {
+  if (isAdminUser(u)) return 'ceo-dashboard';
+  if (u?.role === 'lojista') return 'admin-dashboard';
+  return 'home';
+}
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -151,7 +168,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return true;
   });
-  const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>(() => {
+    // Ao recarregar, cada ator volta para o seu ambiente.
+    try {
+      const saved = sessionStorage.getItem('validamais_currentUser');
+      if (saved) {
+        const u = JSON.parse(saved);
+        if (isAdminUser(u)) return 'ceo-dashboard';
+        if (u?.role === 'lojista') return 'admin-dashboard';
+      }
+    } catch {}
+    return 'home';
+  });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [alert, setAlertState] = useState<Alert | null>(null);
 
@@ -629,8 +657,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    if (screen.startsWith('admin') && (!user || (user.role !== 'lojista' && user.role !== 'admin'))) {
-      showAlert('Acesso restrito para administradores.', 'error');
+    // Painéis do lojista (admin-*) — exclusivos do LOJISTA (dono da loja).
+    if (screen.startsWith('admin') && (!user || user.role !== 'lojista')) {
+      showAlert('Área exclusiva do lojista.', 'error');
+      setCurrentScreen(isAdminUser(user) ? 'ceo-dashboard' : 'home');
+      return;
+    }
+
+    // Ambiente da plataforma (admin/desenvolvedor) — exclusivo do ADMIN.
+    if (screen === 'ceo-dashboard' && !isAdminUser(user)) {
+      showAlert('Área exclusiva da administração da plataforma.', 'error');
       setCurrentScreen('home');
       return;
     }
@@ -703,6 +739,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Promove o desenvolvedor (e-mail admin) ao papel 'admin' na sessão,
+  // independentemente do que estiver salvo no perfil — garante o ambiente exclusivo.
+  useEffect(() => {
+    if (user && user.role !== 'admin' && PLATFORM_ADMIN_EMAILS.includes((user.email || '').toLowerCase())) {
+      setUser(prev => (prev ? { ...prev, role: 'admin' } : prev));
+    }
+  }, [user]);
+
   // Retorno do Checkout do Mercado Pago (?payment=success|pending|failure)
   useEffect(() => {
     const ret = lerRetornoPagamento();
@@ -733,11 +777,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sessionStorage.setItem('validamais_currentUser', JSON.stringify(profile));
         setLoading(false);
         showAlert(`Bem-vindo de volta, ${profile.nome}!`, 'success');
-        if (profile.role === 'lojista' || (profile.role as string) === 'admin') {
-          navigateTo('admin-dashboard');
-        } else {
-          navigateTo('home');
-        }
+        navigateTo(homeScreenFor(profile));
         return;
       }
     } catch (err: any) {
@@ -751,11 +791,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       sessionStorage.setItem('validamais_currentUser', JSON.stringify(dbProfile));
       setLoading(false);
       showAlert(`Bem-vindo de volta, ${dbProfile.nome}! (Login de Teste)`, 'success');
-      if (dbProfile.role === 'lojista' || (dbProfile.role as string) === 'admin') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
+      navigateTo(homeScreenFor(dbProfile));
       return;
     } catch (err: any) {
       if (err.message && err.message.includes('incorretos')) {
@@ -779,11 +815,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sessionStorage.setItem('validamais_currentUser', JSON.stringify(matched));
           setLoading(false);
           showAlert(`Bem-vindo de volta, ${matched.nome}! (Sessão Local)`, 'success');
-          if (matched.role === 'lojista' || (matched.role as string) === 'admin') {
-            navigateTo('admin-dashboard');
-          } else {
-            navigateTo('home');
-          }
+          navigateTo(homeScreenFor(matched));
           return;
         } else {
           showAlert('E-mail ou senha incorretos.', 'error');
@@ -827,11 +859,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showAlert(`Bem-vindo, ${profile.nome}! (Login com Google)`, 'success');
       
       setLoading(false);
-      if (profile.role === 'lojista') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
+      navigateTo(homeScreenFor(profile));
     } catch (err: any) {
       console.error("Google login failed:", err);
       // Don't show cancel error as a scary message
@@ -866,11 +894,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(userProfile);
       sessionStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
       showAlert('Conta criada! Enviamos um link de verificação para o seu e-mail — confirme para ativar sua conta.', 'success');
-      if (role === 'lojista') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
+      navigateTo(homeScreenFor(userProfile));
       return;
     } catch (err: any) {
       console.warn("Firebase Auth register failed. Creating simulated persistent user on Firestore:", err);
@@ -903,11 +927,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       sessionStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
       
       showAlert(`Sua conta de teste '${userProfile.nome}' foi criada e cadastrada com sucesso!`, 'success');
-      if (role === 'lojista') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
+      navigateTo(homeScreenFor(userProfile));
     } catch (err: any) {
       if (err.message && err.message.includes('em uso')) {
         throw err;
@@ -945,11 +965,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       sessionStorage.setItem('validamais_currentUser', JSON.stringify(userProfile));
 
       showAlert(`Conta de teste criada para '${userProfile.nome}' neste navegador (modo offline).`, 'success');
-      if (role === 'lojista') {
-        navigateTo('admin-dashboard');
-      } else {
-        navigateTo('home');
-      }
+      navigateTo(homeScreenFor(userProfile));
     } finally {
       setLoading(false);
     }

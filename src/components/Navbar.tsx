@@ -141,6 +141,7 @@ export const Navbar: React.FC = () => {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-1">
+            {/* Consumidor / visitante */}
             {(!user || user.role === 'user') && (
               <>
                 <button
@@ -165,37 +166,38 @@ export const Navbar: React.FC = () => {
                 >
                   Produtos
                 </button>
+                {user && (
+                  <button
+                    id="nav_btn_reservas"
+                    onClick={() => navigateTo('minhas-reservas')}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      currentScreen === 'minhas-reservas'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    Minhas Reservas
+                  </button>
+                )}
               </>
             )}
 
-            {user && (user.role === 'admin' || user.email === 'ebsonsilva7@gmail.com') && (
+            {/* Admin da plataforma (desenvolvedor) — ambiente exclusivo */}
+            {user && user.role === 'admin' && (
               <button
-                id="nav_btn_ceo_dashboard"
+                id="nav_btn_platform"
                 onClick={() => navigateTo('ceo-dashboard')}
-                className={`px-3 py-2.5 rounded-xl text-[10px] font-black uppercase font-mono tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 bg-slate-950 text-emerald-400 hover:bg-slate-900 shadow-sm border border-emerald-500/20`}
+                className="px-3.5 py-2.5 rounded-xl text-[11px] font-black uppercase font-mono tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 bg-slate-950 text-emerald-400 hover:bg-slate-900 shadow-sm border border-emerald-500/20"
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                <span>Painel CEO 👑</span>
+                <span>Painel da Plataforma</span>
               </button>
             )}
 
-            {user && user.role === 'user' && (
-              <button
-                id="nav_btn_reservas"
-                onClick={() => navigateTo('minhas-reservas')}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentScreen === 'minhas-reservas'
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <ShoppingCart className="w-4 h-4" />
-                Minhas Reservas
-              </button>
-            )}
-
+            {/* Lojista — gestão da própria loja */}
             {user && user.role === 'lojista' && (
-              <div id="admin_nav_group" className="flex items-center space-x-1 border-l pl-3 ml-2 border-gray-200">
+              <div id="admin_nav_group" className="flex items-center space-x-1">
                 <button
                   id="nav_btn_admin_db"
                   onClick={() => navigateTo('admin-dashboard')}
@@ -375,9 +377,9 @@ export const Navbar: React.FC = () => {
                   <div className="hidden md:flex flex-col items-end text-right">
                     <span className="text-xs font-semibold text-gray-800 group-hover:text-emerald-700 transition-colors">{user.nome}</span>
                     <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full leading-none mt-0.5 text-center ${
-                      user.role === 'lojista' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                      user.role === 'admin' ? 'bg-slate-900 text-emerald-400' : user.role === 'lojista' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
                     }`}>
-                      {user.role === 'lojista' ? 'LOJISTA' : 'CLIENTE'}
+                      {user.role === 'admin' ? 'ADMIN' : user.role === 'lojista' ? 'LOJISTA' : 'CLIENTE'}
                     </span>
                   </div>
 
@@ -485,24 +487,34 @@ export const Navbar: React.FC = () => {
             </>
           )}
 
-          {/* CEO shortcut — shown alongside lojista/admin tabs */}
-          {user && (user.role === 'lojista' || user.role === 'admin' || user.email === 'ebsonsilva7@gmail.com') && (
-            <button
-              onClick={() => navigateTo('ceo-dashboard')}
-              aria-label="Painel CEO"
-              className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
-                currentScreen === 'ceo-dashboard'
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              <Sparkles className={`w-5 h-5 ${currentScreen === 'ceo-dashboard' ? 'animate-pulse' : ''}`} />
-              <span className="text-[10px] font-bold leading-none">CEO</span>
-            </button>
+          {/* Admin da plataforma — ambiente exclusivo */}
+          {user && user.role === 'admin' && (
+            <>
+              <button
+                onClick={() => navigateTo('ceo-dashboard')}
+                aria-label="Painel da Plataforma"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'ceo-dashboard' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <Sparkles className={`w-5 h-5 ${currentScreen === 'ceo-dashboard' ? 'animate-pulse' : ''}`} />
+                <span className="text-[10px] font-bold leading-none">Plataforma</span>
+              </button>
+              <button
+                onClick={() => navigateTo('dados-cadastrais')}
+                aria-label="Conta"
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'dados-cadastrais' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <User className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-none">Conta</span>
+              </button>
+            </>
           )}
 
-          {/* Lojista / Admin tabs */}
-          {user && (user.role === 'lojista' || user.role === 'admin') && (
+          {/* Lojista — gestão da própria loja */}
+          {user && user.role === 'lojista' && (
             <>
               <button
                 onClick={() => navigateTo('admin-dashboard')}

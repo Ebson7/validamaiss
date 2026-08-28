@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type UserRole = 'user' | 'lojista';
+export type UserRole = 'user' | 'lojista' | 'admin';
 
 export interface Categoria {
   id?: string;
