@@ -164,6 +164,7 @@ export const FiltrosProdutos: React.FC<FiltrosProdutosProps> = ({
               onChange={(e) => setSortBy(e.target.value)}
               className="w-full text-sm ps-10 pe-4 py-2 border border-gray-200/60 rounded-xl bg-white/60 focus:bg-white focus:border-emerald-500 focus:outline-none transition-all appearance-none cursor-pointer font-semibold text-gray-700"
             >
+              <option value="MAIS_PROXIMOS">Mais Próximos (distância)</option>
               <option value="URGENTE_PRIMEIRO">Mais Urgente (Vence logo)</option>
               <option value="MENOR_PRECO">Menor Preço (R$)</option>
               <option value="MAIOR_PRECO">Maior Preço (R$)</option>

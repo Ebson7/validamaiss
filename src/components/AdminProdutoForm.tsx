@@ -6,7 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Produto } from '../types';
-import { Check, ArrowLeft, Image as ImageIcon, Send, Percent, Tag, ShieldAlert, Trash2, Camera, UploadCloud, Info, Sparkles } from 'lucide-react';
+import { getCurrentPosition } from '../lib/geo';
+import { Check, ArrowLeft, Image as ImageIcon, Send, Percent, Tag, ShieldAlert, Trash2, Camera, UploadCloud, Info, Sparkles, MapPin, LocateFixed } from 'lucide-react';
 
 interface AdminProdutoFormProps {
   produtoId?: string | null;
@@ -52,7 +53,21 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
   onSubmit,
   onCancel
 }) => {
-  const { user, categorias, navigateTo } = useApp();
+  const { user, categorias, navigateTo, showAlert } = useApp();
+
+  const handleUseLocation = async () => {
+    setGeoStatus('loading');
+    try {
+      const c = await getCurrentPosition();
+      setLat(c.lat);
+      setLng(c.lng);
+      setGeoStatus('ok');
+      showAlert('Localização da loja definida com sucesso!', 'success');
+    } catch {
+      setGeoStatus('error');
+      showAlert('Não foi possível obter a localização. Autorize o acesso à localização no navegador.', 'warning');
+    }
+  };
 
   const [nomeProduto, setNomeProduto] = useState('');
   const [categoria, setCategoria] = useState(() => {
@@ -68,6 +83,9 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
   const [quantidadeDisponivel, setQuantidadeDisponivel] = useState<number | ''>('');
   const [endereco, setEndereco] = useState('');
   const [nomeLoja, setNomeLoja] = useState('');
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
   const [imageUrl, setImageUrl] = useState('');
   const [imagens, setImagens] = useState<string[]>(['', '', '']);
   const [submitting, setSubmitting] = useState(false);
@@ -138,6 +156,11 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
       setQuantidadeDisponivel(initialProduto.quantidadeDisponivel);
       setEndereco(initialProduto.endereco);
       setNomeLoja(initialProduto.nomeLoja);
+      if (typeof initialProduto.lat === 'number' && typeof initialProduto.lng === 'number') {
+        setLat(initialProduto.lat);
+        setLng(initialProduto.lng);
+        setGeoStatus('ok');
+      }
       setImageUrl(initialProduto.imageUrl || '');
       if (initialProduto.imagens && initialProduto.imagens.length > 0) {
         const loaded = [...initialProduto.imagens];
@@ -287,6 +310,7 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
         quantidadeDisponivel: Number(quantidadeDisponivel),
         endereco,
         nomeLoja: nomeLoja || user?.nome || 'Mercado Geral',
+        ...(lat !== null && lng !== null ? { lat, lng } : {}),
         imageUrl: firstImage,
         imagens: cleanImagens.length > 0 ? cleanImagens : (imageUrl.trim() ? [imageUrl.trim()] : [])
       });
@@ -508,6 +532,32 @@ export const AdminProdutoForm: React.FC<AdminProdutoFormProps> = ({
                 placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo / SP"
                 className="w-full text-sm px-4 py-2.5 bg-white/40 border border-white/50 rounded-xl focus:border-emerald-500 focus:bg-white/75 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-semibold text-gray-800"
               />
+
+              {/* Geolocalização da loja — permite ordenar por proximidade */}
+              <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleUseLocation}
+                  disabled={geoStatus === 'loading'}
+                  className={`inline-flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-60 ${
+                    geoStatus === 'ok'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-white/60 text-gray-700 border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/40'
+                  }`}
+                >
+                  <LocateFixed className={`w-4 h-4 ${geoStatus === 'loading' ? 'animate-spin' : ''}`} />
+                  {geoStatus === 'loading' ? 'Localizando...' : geoStatus === 'ok' ? 'Atualizar localização' : 'Usar localização da loja'}
+                </button>
+                {geoStatus === 'ok' && lat !== null && lng !== null && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                    <MapPin className="w-3.5 h-3.5" />
+                    Definida ({lat.toFixed(4)}, {lng.toFixed(4)})
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-400 font-medium mt-1">
+                Defina a localização para que os clientes vejam a distância e encontrem sua loja em "perto de você".
+              </p>
             </div>
           </div>
         </div>

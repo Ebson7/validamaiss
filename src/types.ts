@@ -42,6 +42,8 @@ export interface Produto {
   imagens?: string[];
   status: 'disponivel' | 'esgotado';
   endereco: string;
+  lat?: number; // Store latitude (for "near you" discovery)
+  lng?: number; // Store longitude
   criadoEm: any; // Firestore Timestamp
 }
 

@@ -6,13 +6,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Produto } from '../types';
-import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check, Heart } from 'lucide-react';
+import { formatDistance } from '../lib/geo';
+import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check, Heart, Navigation } from 'lucide-react';
 
 interface ProdutoCardProps {
   produto: Produto;
+  distanceKm?: number;
 }
 
-export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto }) => {
+export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto, distanceKm }) => {
   const { 
     navigateTo, 
     user, 
@@ -367,12 +369,18 @@ ${shareUrl}`;
             </p>
           )}
 
-          {/* Location Address */}
+          {/* Location Address + distance */}
           <div className="flex items-center gap-1.5 text-gray-400 mt-2.5">
             <MapPin className="w-3 h-3 text-gray-300 shrink-0" />
-            <span className="text-[10px] truncate max-w-full font-medium" title={produto.endereco}>
+            <span className="text-[10px] truncate flex-1 font-medium" title={produto.endereco}>
               {produto.endereco}
             </span>
+            {typeof distanceKm === 'number' && (
+              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                <Navigation className="w-2.5 h-2.5" />
+                {formatDistance(distanceKm)}
+              </span>
+            )}
           </div>
         </div>
 

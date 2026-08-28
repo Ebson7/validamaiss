@@ -8,7 +8,8 @@ import { useApp } from '../../context/AppContext';
 import { Produto } from '../../types';
 import { FiltrosProdutos } from '../FiltrosProdutos';
 import { ProdutoCard } from '../ProdutoCard';
-import { AlertCircle, SlidersHorizontal, Loader2, Heart, Search, MapPin, Radio, Bell, BellRing, Trash2, Zap } from 'lucide-react';
+import { getCurrentPosition, haversineKm, Coords } from '../../lib/geo';
+import { AlertCircle, SlidersHorizontal, Loader2, Heart, Search, MapPin, Radio, Bell, BellRing, Trash2, Zap, LocateFixed } from 'lucide-react';
 
 export const ProdutosValida: React.FC = () => {
   const { 
@@ -31,6 +32,27 @@ export const ProdutosValida: React.FC = () => {
   const [sortBy, setSortBy] = useState('URGENTE_PRIMEIRO');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [favoritesActiveTab, setFavoritesActiveTab] = useState<'ITEMS' | 'STORES'>('ITEMS');
+
+  // Geolocation ("perto de você")
+  const [userLoc, setUserLoc] = useState<Coords | null>(null);
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
+
+  const handleUseMyLocation = async () => {
+    setGeoStatus('loading');
+    try {
+      const c = await getCurrentPosition();
+      setUserLoc(c);
+      setGeoStatus('ok');
+      setSortBy('MAIS_PROXIMOS');
+    } catch {
+      setGeoStatus('error');
+    }
+  };
+
+  const distanceFor = (p: Produto): number | undefined => {
+    if (!userLoc || typeof p.lat !== 'number' || typeof p.lng !== 'number') return undefined;
+    return haversineKm(userLoc, { lat: p.lat, lng: p.lng });
+  };
 
   // Radar CEP states
   const [activeRadars, setActiveRadars] = useState<{cep: string; region: string}[]>(() => {
@@ -117,6 +139,14 @@ export const ProdutosValida: React.FC = () => {
       const discountB = b.precoOriginal > 0 ? (b.precoOriginal - b.precoPromocional) / b.precoOriginal : 0;
       return discountB - discountA;
     }
+    if (sortBy === 'MAIS_PROXIMOS') {
+      const da = distanceFor(a);
+      const db = distanceFor(b);
+      if (da === undefined && db === undefined) return 0;
+      if (da === undefined) return 1; // sem localização vai para o fim
+      if (db === undefined) return -1;
+      return da - db;
+    }
     return 0;
   });
 
@@ -152,6 +182,37 @@ export const ProdutosValida: React.FC = () => {
             {showOnlyFavorites ? 'Mostrar Todos os Lotes' : 'Ver Meus Favoritos'}
           </button>
         )}
+      </div>
+
+      {/* "Perto de você" — geolocalização */}
+      <div id="geo_discovery_bar" className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+            <MapPin className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-gray-900 leading-tight">Ofertas perto de você</p>
+            <p className="text-[11px] text-gray-500 font-medium">
+              {geoStatus === 'ok'
+                ? 'Ordenando por proximidade da sua localização.'
+                : geoStatus === 'error'
+                ? 'Não conseguimos sua localização — autorize o acesso no navegador.'
+                : 'Ative para ver a distância até cada loja e ordenar por proximidade.'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleUseMyLocation}
+          disabled={geoStatus === 'loading'}
+          className={`shrink-0 inline-flex items-center justify-center gap-2 text-xs font-bold px-4 py-2.5 rounded-full cursor-pointer transition-all active:scale-95 disabled:opacity-60 ${
+            geoStatus === 'ok'
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+              : 'bg-white text-emerald-700 border-2 border-emerald-200 hover:border-emerald-300'
+          }`}
+        >
+          <LocateFixed className={`w-4 h-4 ${geoStatus === 'loading' ? 'animate-spin' : ''}`} />
+          {geoStatus === 'loading' ? 'Localizando...' : geoStatus === 'ok' ? 'Localização ativa' : 'Usar minha localização'}
+        </button>
       </div>
 
       {/* Sub-tab selection bar when showOnlyFavorites is true */}
@@ -457,7 +518,7 @@ export const ProdutosValida: React.FC = () => {
       ) : sortedProducts.length > 0 ? (
         <div id="products_grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedProducts.map((p) => (
-            <ProdutoCard key={p.id} produto={p} />
+            <ProdutoCard key={p.id} produto={p} distanceKm={distanceFor(p)} />
           ))}
         </div>
       ) : (
