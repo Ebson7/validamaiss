@@ -1,0 +1,13 @@
+{
+  "name": "validamais-pagamento-worker",
+  "description": "Backend de pagamento (Mercado Pago / Checkout Pro) do ValidaMais — Cloudflare Worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ProdutoCard } from '../ProdutoCard';
 import { AdvertiserBanners } from '../AdvertiserBanners';
+import { isPagamentoConfigurado } from '../../lib/pagamento';
 import {
   Leaf, Sparkles, AlertCircle, ShoppingBag, ChevronRight, ArrowRight,
   MapPin, Clock, Search, ShoppingCart, Store, Ticket
@@ -22,6 +23,7 @@ export const HomeValida: React.FC = () => {
     .slice(0, 3);
 
   const dbEmpty = produtos.length === 0;
+  const pagamentoOnline = isPagamentoConfigurado();
 
   const handleCreateMockData = async () => {
     setSeeding(true);
@@ -34,11 +36,17 @@ export const HomeValida: React.FC = () => {
     }
   };
 
-  const steps = [
-    { icon: <Search className="w-5 h-5" />, title: 'Encontre perto de você', desc: 'Descubra lotes com até 70% de desconto em mercados próximos.' },
-    { icon: <ShoppingCart className="w-5 h-5" />, title: 'Reserve online', desc: 'Garanta seu item sem pagar antecipado — leva segundos.' },
-    { icon: <Ticket className="w-5 h-5" />, title: 'Retire e pague na loja', desc: 'Apresente seu código de retirada no balcão e finalize por lá.' },
-  ];
+  const steps = pagamentoOnline
+    ? [
+        { icon: <Search className="w-5 h-5" />, title: 'Encontre perto de você', desc: 'Descubra lotes com até 70% de desconto em mercados próximos.' },
+        { icon: <ShoppingCart className="w-5 h-5" />, title: 'Reserve e pague online', desc: 'Pagamento seguro via Mercado Pago — leva segundos.' },
+        { icon: <Ticket className="w-5 h-5" />, title: 'Retire na loja', desc: 'Apresente seu código de retirada no balcão e leve seu pedido.' },
+      ]
+    : [
+        { icon: <Search className="w-5 h-5" />, title: 'Encontre perto de você', desc: 'Descubra lotes com até 70% de desconto em mercados próximos.' },
+        { icon: <ShoppingCart className="w-5 h-5" />, title: 'Reserve online', desc: 'Garanta seu item sem pagar antecipado — leva segundos.' },
+        { icon: <Ticket className="w-5 h-5" />, title: 'Retire e pague na loja', desc: 'Apresente seu código de retirada no balcão e finalize por lá.' },
+      ];
 
   return (
     <div id="home_screen" className="space-y-10">
@@ -60,7 +68,11 @@ export const HomeValida: React.FC = () => {
               <span className="text-lime-300">pague muito menos.</span>
             </h1>
             <p className="text-sm sm:text-base text-emerald-50/85 leading-relaxed max-w-md font-medium">
-              Reserve lotes de mercados locais com <strong className="text-white">até 70% de desconto</strong> antes do vencimento. Retire na loja e pague no balcão.
+              {pagamentoOnline ? (
+                <>Reserve e pague online lotes com <strong className="text-white">até 70% de desconto</strong> antes do vencimento. Retire na loja com seu código.</>
+              ) : (
+                <>Reserve lotes de mercados locais com <strong className="text-white">até 70% de desconto</strong> antes do vencimento. Retire na loja e pague no balcão.</>
+              )}
             </p>
 
             <div className="flex flex-wrap gap-3 pt-1">
@@ -102,8 +114,8 @@ export const HomeValida: React.FC = () => {
               </div>
               <div className="w-px h-9 bg-white/15" />
               <div>
-                <div className="text-2xl font-black text-white leading-none">R$ 0</div>
-                <div className="text-[11px] font-semibold text-emerald-100/70 mt-1">para reservar</div>
+                <div className="text-2xl font-black text-white leading-none">{pagamentoOnline ? '100%' : 'R$ 0'}</div>
+                <div className="text-[11px] font-semibold text-emerald-100/70 mt-1">{pagamentoOnline ? 'pagamento seguro' : 'para reservar'}</div>
               </div>
             </div>
           </div>

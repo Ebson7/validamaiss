@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Reserva } from '../../types';
+import { isPagamentoConfigurado, iniciarPagamentoMP } from '../../lib/pagamento';
 import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
@@ -25,6 +26,7 @@ export const ProdutoDetalheValida: React.FC = () => {
   } = useApp();
   const [quantidade, setQuantidade] = useState(1);
   const [reserving, setReserving] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
   const [confirmedReserva, setConfirmedReserva] = useState<Reserva | null>(null);
@@ -181,9 +183,19 @@ ${shareUrl}`
     setReserving(true);
     try {
       const res = await createReservation(produto.id!, quantidade);
+      // Modelo pré-pago: se o pagamento online está configurado, leva o cliente
+      // direto ao Checkout do Mercado Pago (a reserva só é confirmada após a
+      // aprovação). Caso contrário, mantém o fluxo "pague na loja".
+      if (isPagamentoConfigurado()) {
+        setRedirecting(true);
+        await iniciarPagamentoMP(res.id!); // redireciona (window.location)
+        return; // não chega aqui — a página é substituída pelo checkout
+      }
       setConfirmedReserva(res); // abre o modal de confirmação com o código
     } catch (err: any) {
       console.error(err);
+      showAlert(err?.message || 'Não foi possível iniciar o pagamento. Tente novamente.', 'error');
+      setRedirecting(false);
     } finally {
       setReserving(false);
     }
@@ -465,13 +477,21 @@ ${shareUrl}`
                       <p>Sua conta está cadastrada como Lojista. Contas de lojistas não estão autorizadas a efetuar reservas no catálogo público.</p>
                     </div>
                   ) : (
+                    <>
                     <button
                       onClick={handleReserve}
                       disabled={reserving}
                       className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 hover:scale-101 text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      {reserving ? (
+                      {redirecting ? (
+                        <span className="font-mono inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Redirecionando ao pagamento...</span>
+                      ) : reserving ? (
                         <span className="font-mono">Processando...</span>
+                      ) : isPagamentoConfigurado() ? (
+                        <>
+                          <CreditCard className="w-4 h-4 text-emerald-100" />
+                          Pagar e reservar &middot; {(promo * quantidade).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </>
                       ) : (
                         <>
                           <ShoppingCart className="w-4 h-4 text-emerald-100" />
@@ -479,6 +499,12 @@ ${shareUrl}`
                         </>
                       )}
                     </button>
+                    {isPagamentoConfigurado() && (
+                      <p className="text-[10px] text-gray-500 leading-tight text-center flex items-center justify-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-emerald-500" /> Pagamento seguro via Mercado Pago. Retire na loja com seu código.
+                      </p>
+                    )}
+                    </>
                   )
                 ) : (
                   <div className="space-y-2.5">

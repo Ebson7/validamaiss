@@ -14,7 +14,13 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
+      # Base URL do backend de pagamento (Cloudflare Worker). Fica vazia até
+      # você definir a variável de repositório `VITE_PAYMENT_API_BASE`
+      # (Settings → Secrets and variables → Actions → Variables). Enquanto vazia,
+      # o app segue no modo "reserve grátis / pague na loja".
       - run: npm run build
+        env:
+          VITE_PAYMENT_API_BASE: ${{ vars.VITE_PAYMENT_API_BASE }}
       - run: npm install -g firebase-tools
 
       # Authenticate with a Google Cloud service account (Application Default

@@ -1,0 +1,12 @@
+name = "validamais-pagamento"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Variáveis públicas (não são segredos). Ajuste se necessário.
+[vars]
+FIRESTORE_DATABASE_ID = "ai-studio-a3fd2431-2a08-4b72-853b-bad27ade6996"
+APP_URL = "https://gen-lang-client-0971671639.web.app"
+
+# Segredos (defina com `wrangler secret put ...`, NUNCA aqui):
+#   wrangler secret put MP_ACCESS_TOKEN
+#   wrangler secret put FIREBASE_SERVICE_ACCOUNT
