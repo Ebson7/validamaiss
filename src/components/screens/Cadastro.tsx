@@ -132,9 +132,14 @@ export const CadastroValida: React.FC = () => {
   };
 
   const handleGoogleSignUp = async () => {
+    // Google cria SEMPRE conta de consumidor. Lojista exige CNPJ (fluxo e-mail).
+    if (role === 'lojista') {
+      showAlert('Para cadastrar sua loja, use e-mail e senha — o CNPJ é obrigatório para lojistas.', 'warning');
+      return;
+    }
     setLoading(true);
     try {
-      await loginWithGoogle(role);
+      await loginWithGoogle('user');
     } catch {
       // handled in context
     } finally {
@@ -206,27 +211,39 @@ export const CadastroValida: React.FC = () => {
               </div>
             </div>
 
-            {/* Google Sign-Up */}
-            {typeof window !== 'undefined' && window.self === window.top && (
-              <button
-                type="button"
-                disabled={loading}
-                onClick={handleGoogleSignUp}
-                className="w-full py-3 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50/80 text-gray-700 text-sm font-semibold rounded-xl shadow-xs hover:shadow-sm cursor-pointer transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                <GoogleIcon />
-                Cadastrar com Google
-              </button>
+            {/* Cadastro com Google — apenas para consumidores (lojista exige CNPJ) */}
+            {typeof window !== 'undefined' && window.self === window.top && role === 'user' && (
+              <>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleGoogleSignUp}
+                  className="w-full py-3 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50/80 text-gray-700 text-sm font-semibold rounded-xl shadow-xs hover:shadow-sm cursor-pointer transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  <GoogleIcon />
+                  Cadastrar com Google
+                </button>
+
+                {/* Separator */}
+                <div className="relative flex items-center gap-4">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider shrink-0">
+                    ou com e-mail
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+              </>
             )}
 
-            {/* Separator */}
-            <div className="relative flex items-center gap-4">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider shrink-0">
-                ou com e-mail
-              </span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
+            {/* Aviso para lojista — cadastro exige CNPJ via e-mail */}
+            {role === 'lojista' && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3.5 flex items-start gap-2.5">
+                <Building2 className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
+                  Lojistas cadastram com <strong>e-mail e senha</strong> — o CNPJ é obrigatório para validar sua loja. O cadastro com Google fica disponível apenas para consumidores.
+                </p>
+              </div>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
