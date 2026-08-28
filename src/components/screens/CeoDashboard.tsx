@@ -2,19 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Usuario, Produto } from '../../types';
-import { 
-  TrendingUp, Users, Store, ShieldCheck, Sparkles, Award, Star, 
-  Trash2, Plus, Edit, Check, Globe, RefreshCcw, Send, Settings, AlertTriangle, AlertCircle
+import { Usuario } from '../../types';
+import {
+  TrendingUp, Users, Store, ShieldCheck, Sparkles, Award, Star,
+  Edit, Check, Globe, RefreshCcw, Send, Settings, AlertTriangle,
+  Package, ClipboardList, Wallet, Leaf, Clock, CheckCircle2
 } from 'lucide-react';
 
 export const CeoDashboard: React.FC = () => {
-  const { navigateTo, user, showAlert, logout } = useApp();
-  
+  const { navigateTo, user, showAlert, produtos, reservas } = useApp();
+
   // States
   const [merchants, setMerchants] = useState<Usuario[]>([]);
+  const [totalClientes, setTotalClientes] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [totalProductsCount, setTotalProductsCount] = useState(0);
   
   // Custom sponsorship edit states
   const [editingMerchantId, setEditingMerchantId] = useState<string | null>(null);
@@ -38,14 +39,10 @@ export const CeoDashboard: React.FC = () => {
         allUsers.push({ uid: docSnap.id, ...docSnap.data() } as Usuario);
       });
 
-      // Filter only merchants (admin role)
-      const listMerchants = allUsers.filter(u => u.role === 'lojista' || (u.role as string) === 'admin');
+      // Contagem real por papel
+      const listMerchants = allUsers.filter(u => u.role === 'lojista');
       setMerchants(listMerchants);
-
-      // Fetch all products to display aggregate metrics
-      const productsSnap = await getDocs(collection(db, 'produtos'));
-      setTotalProductsCount(productsSnap.size);
-
+      setTotalClientes(allUsers.filter(u => u.role === 'user').length);
     } catch (err) {
       console.error("Could not fetch ceo dashboard metrics:", err);
       showAlert("Não foi possível carregar os dados reais do Firestore. Usando cache local.", "warning");
@@ -108,9 +105,34 @@ export const CeoDashboard: React.FC = () => {
     showAlert("Mensagem global atualizada com sucesso para todos os usuários!", "success");
   };
 
-  // Simulate instant user growth and carbon emission saves metrics
-  const wasteSavedKg = 1420 + (totalProductsCount * 8);
-  const co2AvoidedKg = Math.round(wasteSavedKg * 2.1);
+  // ── Métricas REAIS da plataforma (produtos e reservas vêm do contexto) ──
+  const produtosAtivos = produtos.filter(p => p.status === 'disponivel').length;
+  const naoCanceladas = reservas.filter(r => r.status !== 'cancelado');
+  const retiradas = reservas.filter(r => r.status === 'retirado');
+  const pendentes = reservas.filter(r => r.status === 'pendente');
+  const canceladas = reservas.filter(r => r.status === 'cancelado');
+
+  const gmvPotencial = naoCanceladas.reduce((s, r) => s + (r.precoTotal || 0), 0);
+  const gmvRealizado = retiradas.reduce((s, r) => s + (r.precoTotal || 0), 0);
+  const finalizadas = retiradas.length + canceladas.length;
+  const taxaRetirada = finalizadas > 0 ? Math.round((retiradas.length / finalizadas) * 100) : 0;
+
+  // Impacto real: peso salvo por categoria do produto reservado
+  const catMultiplier = (cat?: string) => {
+    if (cat === 'Laticínios') return 0.6;
+    if (cat === 'Padaria') return 0.4;
+    if (cat === 'Hortifrúti') return 0.8;
+    if (cat === 'Carnes') return 1.0;
+    if (cat === 'Bebidas') return 1.2;
+    return 0.5;
+  };
+  const wasteSavedKg = Math.round(naoCanceladas.reduce((s, r) => {
+    const prod = produtos.find(p => p.id === r.produtoId);
+    return s + catMultiplier(prod?.categoria) * (r.quantidade || 1);
+  }, 0) * 10) / 10;
+  const co2AvoidedKg = Math.round(wasteSavedKg * 2.5 * 10) / 10;
+
+  const money = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   // Active Sponsors counts
   const activeSponsors = merchants.filter(m => m.destaqueAtivo && m.destaquePlano);
@@ -156,69 +178,96 @@ export const CeoDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Real-time Platform Key Performance Indicators (KPIs) */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        
-        <div className="bg-white rounded-2xl p-5 border border-stone-100 relative overflow-hidden shadow-xs hover:shadow-md transition-all">
+      {/* KPIs principais — dados reais */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-5 border border-stone-100 shadow-xs hover:shadow-md transition-all">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase font-mono block">Volume Evitado</span>
-              <span className="text-3xl font-black text-slate-900">{wasteSavedKg} kg</span>
-            </div>
-            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-[10px] font-semibold text-emerald-600 mt-3 flex items-center gap-1 font-mono">
-            <span>+15% cresc. simulado semanal</span>
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-stone-100 relative overflow-hidden shadow-xs hover:shadow-md transition-all">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase font-mono block">CO2 Poupado</span>
-              <span className="text-3xl font-black text-teal-900">{co2AvoidedKg} kg</span>
-            </div>
-            <div className="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center">
-              <Globe className="w-5 h-5 animate-pulse" />
-            </div>
-          </div>
-          <p className="text-[10px] font-semibold text-gray-500 mt-3 flex items-center gap-1">
-            <span>Poupados de poluir a atmosfera</span>
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-stone-100 relative overflow-hidden shadow-xs hover:shadow-md transition-all">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase font-mono block">Lojistas Ativos</span>
+              <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase font-mono block">Lojistas</span>
               <span className="text-3xl font-black text-slate-900">{merchants.length}</span>
             </div>
-            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
-              <Store className="w-5 h-5" />
-            </div>
+            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center"><Store className="w-5 h-5" /></div>
           </div>
-          <p className="text-[10px] font-semibold text-gray-500 mt-3 flex items-center gap-1">
-            <span>Contas autorizadas no sistema</span>
-          </p>
+          <p className="text-[10px] font-semibold text-gray-500 mt-3">parceiros cadastrados</p>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-stone-100 relative overflow-hidden shadow-xs hover:shadow-md transition-all">
+        <div className="bg-white rounded-2xl p-5 border border-stone-100 shadow-xs hover:shadow-md transition-all">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase font-mono block">Anúncios Ativos</span>
-              <span className="text-3xl font-black text-slate-900">{activeSponsors.length}</span>
+              <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase font-mono block">Clientes</span>
+              <span className="text-3xl font-black text-slate-900">{totalClientes}</span>
             </div>
-            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-              <Award className="w-5 h-5" />
-            </div>
+            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><Users className="w-5 h-5" /></div>
           </div>
-          <p className="text-[10px] font-semibold text-indigo-600 mt-3 flex items-center gap-1.5 font-mono">
-            <span>{goldCount} Ouro • {bronzeCount} Bronze</span>
-          </p>
+          <p className="text-[10px] font-semibold text-gray-500 mt-3">consumidores cadastrados</p>
         </div>
 
+        <div className="bg-white rounded-2xl p-5 border border-stone-100 shadow-xs hover:shadow-md transition-all">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase font-mono block">Produtos ativos</span>
+              <span className="text-3xl font-black text-slate-900">{produtosAtivos}</span>
+            </div>
+            <div className="w-10 h-10 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center"><Package className="w-5 h-5" /></div>
+          </div>
+          <p className="text-[10px] font-semibold text-gray-500 mt-3">{produtos.length} no catálogo</p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-stone-100 shadow-xs hover:shadow-md transition-all">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] text-gray-400 font-black tracking-widest uppercase font-mono block">Reservas</span>
+              <span className="text-3xl font-black text-slate-900">{reservas.length}</span>
+            </div>
+            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center"><ClipboardList className="w-5 h-5" /></div>
+          </div>
+          <p className="text-[10px] font-semibold text-amber-600 mt-3">{pendentes.length} aguardando retirada</p>
+        </div>
+      </section>
+
+      {/* Financeiro + reservas + impacto */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Faturamento */}
+        <div className="bg-white rounded-2xl p-5 border border-stone-100 shadow-xs space-y-3">
+          <div className="flex items-center gap-2"><Wallet className="w-4 h-4 text-emerald-600" /><span className="text-xs font-black text-gray-700 uppercase tracking-wide">Faturamento (GMV)</span></div>
+          <div>
+            <div className="text-[10px] text-gray-400 font-bold uppercase">Realizado (retiradas)</div>
+            <div className="text-2xl font-black text-emerald-600 leading-none">{money(gmvRealizado)}</div>
+          </div>
+          <div className="flex justify-between text-xs pt-1 border-t border-gray-100">
+            <span className="text-gray-500 font-semibold">Potencial (ativas)</span>
+            <span className="font-black text-gray-800">{money(gmvPotencial)}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-500 font-semibold">Taxa de retirada</span>
+            <span className="font-black text-emerald-600">{taxaRetirada}%</span>
+          </div>
+        </div>
+
+        {/* Reservas por status */}
+        <div className="bg-white rounded-2xl p-5 border border-stone-100 shadow-xs space-y-3">
+          <div className="flex items-center gap-2"><ClipboardList className="w-4 h-4 text-indigo-600" /><span className="text-xs font-black text-gray-700 uppercase tracking-wide">Reservas por status</span></div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs"><span className="inline-flex items-center gap-1.5 text-amber-700 font-bold"><Clock className="w-3.5 h-3.5" /> Pendentes</span><span className="font-black text-gray-900">{pendentes.length}</span></div>
+            <div className="flex items-center justify-between text-xs"><span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold"><CheckCircle2 className="w-3.5 h-3.5" /> Retiradas</span><span className="font-black text-gray-900">{retiradas.length}</span></div>
+            <div className="flex items-center justify-between text-xs"><span className="inline-flex items-center gap-1.5 text-gray-400 font-bold"><AlertTriangle className="w-3.5 h-3.5" /> Canceladas</span><span className="font-black text-gray-900">{canceladas.length}</span></div>
+          </div>
+        </div>
+
+        {/* Impacto */}
+        <div className="bg-white rounded-2xl p-5 border border-stone-100 shadow-xs space-y-3">
+          <div className="flex items-center gap-2"><Leaf className="w-4 h-4 text-lime-600" /><span className="text-xs font-black text-gray-700 uppercase tracking-wide">Impacto ambiental</span></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-2xl font-black text-lime-600 leading-none">{wasteSavedKg}<span className="text-sm"> kg</span></div>
+              <div className="text-[10px] text-gray-400 font-bold uppercase mt-1">alimentos salvos</div>
+            </div>
+            <div>
+              <div className="text-2xl font-black text-sky-600 leading-none">{co2AvoidedKg}<span className="text-sm"> kg</span></div>
+              <div className="text-[10px] text-gray-400 font-bold uppercase mt-1">CO₂ evitado</div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Global Notice Broadcast Module */}
