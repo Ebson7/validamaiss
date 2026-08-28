@@ -5,7 +5,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart } from 'lucide-react';
+import { Reserva } from '../../types';
+import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
   const { 
@@ -26,6 +27,8 @@ export const ProdutoDetalheValida: React.FC = () => {
   const [reserving, setReserving] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
+  const [confirmedReserva, setConfirmedReserva] = useState<Reserva | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const produto = produtos.find(p => p.id === selectedProductId) || null;
 
@@ -177,8 +180,8 @@ ${shareUrl}`
 
     setReserving(true);
     try {
-      await createReservation(produto.id!, quantidade);
-      navigateTo('minhas-reservas');
+      const res = await createReservation(produto.id!, quantidade);
+      setConfirmedReserva(res); // abre o modal de confirmação com o código
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -555,6 +558,90 @@ ${shareUrl}`
           </div>
         )}
       </div>
+
+      {/* ─────────── Modal de confirmação da reserva ─────────── */}
+      {confirmedReserva && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+            {/* Cabeçalho comemorativo */}
+            <div className="relative bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white px-6 pt-7 pb-6 text-center overflow-hidden">
+              <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
+              <button
+                onClick={() => { setConfirmedReserva(null); navigateTo('minhas-reservas'); }}
+                className="absolute right-4 top-4 text-white/70 hover:text-white transition-colors cursor-pointer"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="relative z-10">
+                <div className="w-14 h-14 bg-white/15 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/20">
+                  <PartyPopper className="w-7 h-7 text-lime-300" />
+                </div>
+                <h3 className="text-xl font-black">Reserva confirmada!</h3>
+                <p className="text-xs text-emerald-50/85 font-medium mt-1 max-w-xs mx-auto">
+                  Guarde o código abaixo — você o apresenta na loja para retirar {quantidade > 1 ? `os ${quantidade} itens` : 'o item'}.
+                </p>
+              </div>
+            </div>
+
+            {/* Código de retirada */}
+            <div className="px-6 py-5 space-y-4">
+              <div className="rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-4 text-center">
+                <div className="text-[10px] font-black text-emerald-700 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                  <Ticket className="w-3.5 h-3.5" /> Código de Retirada
+                </div>
+                <div className="text-3xl font-black text-gray-900 font-mono tracking-widest my-1.5">
+                  {confirmedReserva.codigoRetirada || '—'}
+                </div>
+                <button
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(confirmedReserva.codigoRetirada || ''); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); } catch {}
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-white border border-emerald-200 px-3 py-1.5 rounded-lg cursor-pointer transition-all active:scale-95"
+                >
+                  {codeCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {codeCopied ? 'Copiado' : 'Copiar código'}
+                </button>
+              </div>
+
+              {/* Resumo */}
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Store className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-bold text-gray-800">{confirmedReserva.nomeLoja}</span>
+                </div>
+                <div className="flex items-start gap-2 text-gray-600">
+                  <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span className="font-medium">{produto?.endereco}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-gray-100 mt-2">
+                  <span className="text-gray-500 font-medium">Total ({confirmedReserva.quantidade} un.)</span>
+                  <span className="font-black text-emerald-600 text-sm">
+                    {confirmedReserva.precoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-400 text-center pt-1">Pagamento no balcão, no momento da retirada.</p>
+              </div>
+
+              {/* Ações */}
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  onClick={() => { setConfirmedReserva(null); navigateTo('minhas-reservas'); }}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black rounded-full shadow-lg shadow-emerald-600/25 cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  Ver minhas reservas <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => { setConfirmedReserva(null); navigateTo('produtos'); }}
+                  className="w-full py-2.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                >
+                  Continuar procurando ofertas
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

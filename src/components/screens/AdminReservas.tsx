@@ -15,6 +15,16 @@ export const AdminReservasValida: React.FC = () => {
   const myProductIds = new Set(produtos.filter(p => p.adminId === user?.uid).map(p => p.id));
   const myReservas = isPlatformAdmin ? reservas : reservas.filter(r => myProductIds.has(r.produtoId));
 
+  // Resumo + ordenação: pendentes primeiro (precisam de ação)
+  const nPendentes = myReservas.filter(r => r.status === 'pendente').length;
+  const nRetiradas = myReservas.filter(r => r.status === 'retirado').length;
+  const nCanceladas = myReservas.filter(r => r.status === 'cancelado').length;
+  const rank = (s: string) => (s === 'pendente' ? 0 : s === 'retirado' ? 1 : 2);
+  const getTime = (v: any) => {
+    try { return (v?.toDate ? v.toDate() : new Date(v)).getTime() || 0; } catch { return 0; }
+  };
+  const sortedReservas = [...myReservas].sort((a, b) => rank(a.status) - rank(b.status) || getTime(b.criadoEm) - getTime(a.criadoEm));
+
   // Admin changing status: either confirming physical collection (withdraw) or canceling a voided booking
   const handleAdminStatusUpdate = async (reservaId: string, newStatus: 'retirado' | 'cancelado') => {
     try {
@@ -43,6 +53,22 @@ export const AdminReservasValida: React.FC = () => {
         </div>
       ) : myReservas.length > 0 ? (
         <div className="space-y-4 max-w-4xl">
+          {/* Resumo */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+              <div className="text-2xl font-black text-amber-600 leading-none">{nPendentes}</div>
+              <div className="text-[11px] font-bold text-amber-700 mt-1 uppercase tracking-wide">Aguardando retirada</div>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+              <div className="text-2xl font-black text-emerald-600 leading-none">{nRetiradas}</div>
+              <div className="text-[11px] font-bold text-emerald-700 mt-1 uppercase tracking-wide">Retiradas</div>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="text-2xl font-black text-gray-500 leading-none">{nCanceladas}</div>
+              <div className="text-[11px] font-bold text-gray-500 mt-1 uppercase tracking-wide">Canceladas</div>
+            </div>
+          </div>
+
           <div className="glass border-white/40 rounded-2xl p-4 bg-white/40 flex gap-3 text-xs leading-relaxed text-slate-700">
             <Info className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
@@ -52,7 +78,7 @@ export const AdminReservasValida: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {myReservas.map((res) => (
+            {sortedReservas.map((res) => (
               <ReservaCard
                 key={res.id}
                 reserva={res}
