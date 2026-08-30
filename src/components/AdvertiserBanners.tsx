@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { isClubeAtivo } from '../lib/clube';
 import { Award, ShieldCheck, Sparkles, Star, ChevronRight, ChevronLeft, Gift, Percent, Store, Check, CreditCard } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -88,11 +89,10 @@ export const AdvertiserBanners: React.FC = () => {
         </p>
       </div>
     ),
-    actionText: user?.destaquePlano === 'clube' ? 'Já é Membro Oficial!' : 'Quero Fazer Parte!',
+    actionText: isClubeAtivo(user) ? 'Você é membro ★' : 'Quero Fazer Parte!',
     onAction: () => {
-      if (user?.destaquePlano === 'clube') {
-        showAlert('Você já é membro ativo do Clube ValidaMais!', 'info');
-      } else {
+      navigateTo('clube');
+      if (false) { // fluxo antigo do modal substituído pela tela do Clube
         setClubCheckoutStep('info');
         setShowClubModal(true);
       }

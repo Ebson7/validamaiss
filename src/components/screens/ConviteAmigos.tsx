@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { buildInviteUrl, nativeShare, hasNativeShare } from '../../lib/share';
 import { countReferrals } from '../../lib/db-wrapper';
+import { isClubeAtivo } from '../../lib/clube';
 import {
   Gift, Users, Copy, Check, Share2, Leaf, Trophy, Sparkles,
   ArrowRight, Search, UserPlus, Ticket, Loader2,
@@ -22,9 +23,23 @@ const TIERS = [
 ];
 
 export const ConviteAmigos: React.FC = () => {
-  const { user, navigateTo, showAlert } = useApp();
+  const { user, navigateTo, showAlert, updateUserProfile } = useApp();
   const [count, setCount] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+
+  const handleClaimClube = async () => {
+    setClaiming(true);
+    try {
+      const ate = new Date(Date.now() + 30 * 864e5).toISOString();
+      await updateUserProfile({ clubeAtivo: true, clubeDesde: user?.clubeDesde || new Date().toISOString(), clubeValidoAte: ate });
+      showAlert('Recompensa resgatada! Você tem 1 mês de Clube ValidaMais. 💚', 'success');
+    } catch {
+      showAlert('Não foi possível resgatar agora. Tente novamente.', 'error');
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   const inviteUrl = user ? buildInviteUrl(user.uid) : '';
   const inviteText = `Descobri o ValidaMais: dá pra salvar comida de mercados perto de você com até 70% de desconto antes de vencer. 🌱 Entra pelo meu convite:`;
@@ -172,6 +187,19 @@ export const ConviteAmigos: React.FC = () => {
                 </div>
                 <h3 className="text-sm font-black text-gray-900 mt-3 leading-tight">{t.titulo}</h3>
                 <p className="text-[11px] text-gray-500 font-medium mt-0.5">{t.desc}</p>
+                {t.n === 3 && unlocked && !isClubeAtivo(user) && (
+                  <button
+                    onClick={handleClaimClube}
+                    disabled={claiming}
+                    className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black rounded-lg cursor-pointer transition-all active:scale-95 disabled:opacity-60"
+                  >
+                    {claiming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ticket className="w-3.5 h-3.5" />}
+                    Resgatar 1 mês grátis
+                  </button>
+                )}
+                {t.n === 3 && unlocked && isClubeAtivo(user) && (
+                  <span className="mt-2.5 inline-flex items-center gap-1 text-[10px] font-black text-indigo-700"><Check className="w-3 h-3" /> Clube ativo</span>
+                )}
               </div>
             );
           })}

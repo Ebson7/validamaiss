@@ -12,6 +12,7 @@ import {
   AppWindow,
   ShoppingCart,
   Gift,
+  Crown,
   Bell,
   Settings,
   Trash2,
@@ -195,6 +196,18 @@ export const Navbar: React.FC = () => {
                     Indique
                   </button>
                 )}
+                <button
+                  id="nav_btn_clube"
+                  onClick={() => navigateTo('clube')}
+                  className={`px-3 py-2 rounded-lg text-sm font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    currentScreen === 'clube'
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'
+                  }`}
+                >
+                  <Crown className="w-4 h-4" />
+                  Clube
+                </button>
               </>
             )}
 

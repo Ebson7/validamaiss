@@ -19,6 +19,7 @@ import { doc, getDoc, onSnapshot, collection, getDocs, deleteDoc, addDoc, server
 import { auth, db, handleFirestoreError, OperationType, messaging } from '../lib/firebase';
 import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
 import { lerRetornoPagamento, limparRetornoPagamento } from '../lib/pagamento';
+import { descontoReservaFrac } from '../lib/clube';
 import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem, Favorito, FavoritoLoja } from '../types';
 import { 
   getProducts, 
@@ -48,6 +49,7 @@ export type ScreenType =
   | 'admin-categorias'
   | 'dados-cadastrais'
   | 'convite'
+  | 'clube'
   | 'ceo-dashboard';
 
 interface Alert {
@@ -1041,7 +1043,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!user) {
         throw new Error('Identificação necessária: faça login para reservar.');
       }
-      const res = await dbCreateReservation(user.uid, user.email, produtoId, quantidade, user.telefone);
+      const res = await dbCreateReservation(user.uid, user.email, produtoId, quantidade, user.telefone, descontoReservaFrac(user));
       showAlert('Reserva efetuada com sucesso! Retire em loja física.', 'success');
       return res;
     } catch (err: any) {

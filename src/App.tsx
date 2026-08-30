@@ -21,6 +21,7 @@ import { AdminCategoriasValida } from './components/screens/AdminCategorias';
 import { CeoDashboard } from './components/screens/CeoDashboard';
 import { DadosCadastraisValida } from './components/screens/DadosCadastrais';
 import { ConviteAmigos } from './components/screens/ConviteAmigos';
+import { ClubeValida } from './components/screens/ClubeValida';
 import { AlertCircle, CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -58,6 +59,8 @@ function AppContent() {
         return <DadosCadastraisValida />;
       case 'convite':
         return <ConviteAmigos />;
+      case 'clube':
+        return <ClubeValida />;
       default:
         return <HomeValida />;
     }

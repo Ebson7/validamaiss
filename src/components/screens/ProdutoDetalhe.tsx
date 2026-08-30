@@ -8,6 +8,7 @@ import { useApp } from '../../context/AppContext';
 import { Reserva } from '../../types';
 import { isPagamentoConfigurado, iniciarPagamentoMP } from '../../lib/pagamento';
 import { buildShareUrl, nativeShare, hasNativeShare } from '../../lib/share';
+import { isClubeAtivo, precoClube } from '../../lib/clube';
 import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
@@ -66,7 +67,8 @@ export const ProdutoDetalheValida: React.FC = () => {
   if (!produto) return null;
 
   const original = produto.precoOriginal;
-  const promo = produto.precoPromocional;
+  const membroClube = isClubeAtivo(user);
+  const promo = membroClube ? precoClube(produto.precoPromocional) : produto.precoPromocional;
   const discountPercent = original > 0 ? Math.round(((original - promo) / original) * 100) : 0;
 
   // Calculo de Validade
@@ -341,10 +343,19 @@ ${shareUrl}`
                 </span>
               </div>
               <div className="space-y-0.5 text-right flex-1">
-                <span className="text-[10px] font-extrabold text-emerald-700 font-mono uppercase block">Preço Líquido Promo</span>
+                <span className="text-[10px] font-extrabold text-emerald-700 font-mono uppercase block">{membroClube ? 'Preço Clube' : 'Preço Líquido Promo'}</span>
                 <span className="text-2xl font-black text-emerald-600 leading-none">
-                  {produto.precoPromocional.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  {promo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </span>
+                {membroClube ? (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-black text-indigo-700 bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-full mt-1">
+                    ★ CLUBE -5% aplicado
+                  </span>
+                ) : (
+                  <button onClick={() => navigateTo('clube')} className="block text-[10px] font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer mt-1">
+                    Membros do Clube pagam {precoClube(produto.precoPromocional).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} →
+                  </button>
+                )}
               </div>
             </div>
 

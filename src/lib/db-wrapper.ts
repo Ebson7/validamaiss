@@ -358,7 +358,8 @@ export async function createReservation(
   usuarioEmail: string,
   produtoId: string,
   quantidade: number,
-  usuarioTelefone?: string
+  usuarioTelefone?: string,
+  descontoFrac: number = 0 // desconto extra do Clube (ex.: 0.05)
 ): Promise<Reserva> {
   const now = new Date().toISOString();
   const codigoRetirada = generatePickupCode();
@@ -374,7 +375,8 @@ export async function createReservation(
     throw new Error(`Quantidade indisponível no estoque! (${totalLeft} restantes)`);
   }
 
-  const precoTotal = product.precoPromocional * quantidade;
+  const fator = descontoFrac > 0 && descontoFrac < 1 ? 1 - descontoFrac : 1;
+  const precoTotal = Math.round(product.precoPromocional * quantidade * fator * 100) / 100;
 
   try {
     // 1. Transactional check in Firebase if available

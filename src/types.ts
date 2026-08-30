@@ -21,6 +21,9 @@ export interface Usuario {
   senha?: string;
   criadoEm: any; // Firestore Timestamp
   referredBy?: string;          // uid de quem indicou este usuário (programa de indicação)
+  clubeAtivo?: boolean;         // Clube ValidaMais (assinatura do consumidor)
+  clubeDesde?: string;          // ISO — quando virou membro
+  clubeValidoAte?: string;      // ISO — validade (ex.: brinde de 1 mês por indicação)
   destaquePlano?: string;       // e.g. 'bronze' | 'ouro' | 'clube'
   destaqueAtivo?: boolean;
   destaqueMensagem?: string;
