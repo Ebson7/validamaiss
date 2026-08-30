@@ -7,6 +7,7 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { CookieConsent } from './components/CookieConsent';
+import { Onboarding } from './components/Onboarding';
 import { HomeValida } from './components/screens/Home';
 import { ProdutosValida } from './components/screens/Produtos';
 import { ProdutoDetalheValida } from './components/screens/ProdutoDetalhe';
@@ -156,6 +157,9 @@ function AppContent() {
           </span>
         </div>
       </footer>
+
+      {/* Onboarding de primeiro uso */}
+      <Onboarding />
 
       {/* Cookie consent banner */}
       <CookieConsent />

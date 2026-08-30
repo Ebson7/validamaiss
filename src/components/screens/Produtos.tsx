@@ -127,6 +127,15 @@ export const ProdutosValida: React.FC = () => {
     return true;
   });
 
+  // Reputação da loja (média de estrelas) a partir das avaliações
+  const storeRating = (nomeLoja: string): { media: number; n: number } => {
+    const revs = (avaliacoes || []).filter(
+      (r) => r.nomeLoja.toLowerCase().trim() === (nomeLoja || '').toLowerCase().trim()
+    );
+    if (revs.length === 0) return { media: 0, n: 0 };
+    return { media: revs.reduce((s, r) => s + r.estrelas, 0) / revs.length, n: revs.length };
+  };
+
   // Sort order application pipeline
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortBy === 'URGENTE_PRIMEIRO') {
@@ -150,6 +159,12 @@ export const ProdutosValida: React.FC = () => {
       if (da === undefined) return 1; // sem localização vai para o fim
       if (db === undefined) return -1;
       return da - db;
+    }
+    if (sortBy === 'MELHOR_AVALIADAS') {
+      const ra = storeRating(a.nomeLoja);
+      const rb = storeRating(b.nomeLoja);
+      if (rb.media !== ra.media) return rb.media - ra.media; // maior média primeiro
+      return rb.n - ra.n; // desempate por nº de avaliações
     }
     return 0;
   });

@@ -169,6 +169,7 @@ export const FiltrosProdutos: React.FC<FiltrosProdutosProps> = ({
               <option value="MENOR_PRECO">Menor Preço (R$)</option>
               <option value="MAIOR_PRECO">Maior Preço (R$)</option>
               <option value="MAIOR_DESCONTO">Maior Desconto (%)</option>
+              <option value="MELHOR_AVALIADAS">Melhor Avaliadas (★)</option>
             </select>
           </div>
         </div>
