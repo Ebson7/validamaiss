@@ -519,24 +519,35 @@ export async function cancelReservation(reservaId: string): Promise<void> {
 // 9. Confirm reservation retrieved (Admins only)
 export async function updateReservationStatus(reservaId: string, status: 'retirado' | 'cancelado'): Promise<void> {
   const now = new Date().toISOString();
+
+  // Gatilho de repasse: ao confirmar a retirada de uma reserva PAGA, o repasse
+  // ao lojista passa de 'pendente' para 'liberado' (prova de entrega = validação
+  // do código/QR). Reservas não pagas (fluxo "pague na loja") não têm repasse.
+  const localReservations = getLocalReservations();
+  const existing = localReservations.find(r => r.id === reservaId);
+  const shouldRelease =
+    status === 'retirado' &&
+    existing?.pagamentoStatus === 'aprovado' &&
+    existing?.repasseStatus !== 'pago';
+
+  const payload: Record<string, any> = { status, atualizadoEm: serverTimestamp() };
+  if (shouldRelease) payload.repasseStatus = 'liberado';
+
   try {
     const resRef = doc(db, 'reservas', reservaId);
-    await updateDoc(resRef, {
-      status,
-      atualizadoEm: serverTimestamp()
-    });
+    await updateDoc(resRef, payload);
   } catch (error) {
     console.warn("Firestore update reservation error, executing locally:", error);
   }
 
-  const reservations = getLocalReservations();
-  const index = reservations.findIndex(r => r.id === reservaId);
+  const index = localReservations.findIndex(r => r.id === reservaId);
   if (index !== -1) {
-    const res = reservations[index];
+    const res = localReservations[index];
     res.status = status;
+    if (shouldRelease) res.repasseStatus = 'liberado';
     res.atualizadoEm = now;
-    reservations[index] = res;
-    saveLocalReservations(reservations);
+    localReservations[index] = res;
+    saveLocalReservations(localReservations);
   }
 }
 

@@ -45,6 +45,13 @@ function mapStatus(mpStatus) {
   return 'pendente';
 }
 
+// Take rate da plataforma (0–1). Configurável via env TAKE_RATE; padrão 18%.
+function takeRate(env) {
+  const n = Number(env && env.TAKE_RATE);
+  return Number.isFinite(n) && n >= 0 && n < 1 ? n : 0.18;
+}
+const round2 = (v) => Math.round(v * 100) / 100;
+
 // ── Google OAuth (Service Account → access token) ───────────────────────────
 function b64url(bytes) {
   let bin = '';
@@ -254,13 +261,28 @@ async function mpWebhook(request, env) {
   const reservaId = pay.external_reference;
   if (!reservaId) return new Response('sem-referencia', { status: 200 });
 
-  const token = await getAccessToken(env);
-  await fsPatch(env, token, 'reservas', reservaId, {
-    pagamentoStatus: mapStatus(pay.status),
+  const statusPt = mapStatus(pay.status);
+  const valorPago = Number(pay.transaction_amount) || 0;
+  const updates = {
+    pagamentoStatus: statusPt,
     mpPaymentId: String(pay.id),
-    valorPago: Number(pay.transaction_amount) || 0,
+    valorPago,
     atualizadoEm: new Date().toISOString(),
-  });
+  };
+
+  // Ao aprovar: calcula a comissão da plataforma e o repasse líquido do lojista.
+  // O repasse nasce 'pendente' — só é liberado quando a retirada é confirmada
+  // no app (gatilho = validação do código/QR). A taxa do MP é absorvida pela
+  // plataforma (sai da comissão), então o lojista vê um repasse previsível.
+  if (statusPt === 'aprovado') {
+    const comissao = round2(valorPago * takeRate(env));
+    updates.comissaoValor = comissao;
+    updates.repasseValor = round2(valorPago - comissao);
+    updates.repasseStatus = 'pendente';
+  }
+
+  const token = await getAccessToken(env);
+  await fsPatch(env, token, 'reservas', reservaId, updates);
 
   return new Response('ok', { status: 200 });
 }

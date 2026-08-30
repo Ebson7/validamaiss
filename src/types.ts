@@ -64,6 +64,10 @@ export interface Reserva {
   mpPreferenceId?: string; // Preference criada no backend
   mpPaymentId?: string;    // Id do pagamento no Mercado Pago
   valorPago?: number;
+  // Repasse (modelo agregador — Fase 1): calculados no backend na aprovação.
+  comissaoValor?: number;  // Comissão retida pela plataforma
+  repasseValor?: number;   // Líquido a repassar ao lojista (valor − comissão)
+  repasseStatus?: 'pendente' | 'liberado' | 'pago'; // liberado após retirada; pago após PIX
   criadoEm: any; // Firestore Timestamp
   atualizadoEm: any; // Firestore Timestamp
 }

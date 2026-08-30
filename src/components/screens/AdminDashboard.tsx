@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, TrendingUp, Tag, Coins, Save, Trash2, Award, Sparkles, Star, Trophy, ShieldCheck, Check, CreditCard, ChevronRight, X, AlertTriangle } from 'lucide-react';
 import { Produto } from '../../types';
+import { repasseDe, comissaoDe, takeRatePct } from '../../lib/comissao';
 
 export const AdminDashboardValida: React.FC = () => {
   const { user, navigateTo, produtos, reservas: allReservas, avaliacoes, produtosLoading, reservasLoadingPre, updateUserProfile, showAlert, saveProduct } = useApp();
@@ -299,7 +300,16 @@ export const AdminDashboardValida: React.FC = () => {
               {metrics.recoveredValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </div>
             <div className="text-[9px] text-emerald-300/70 font-medium mt-1 uppercase font-mono">
-              Entrou no caixa
+              Vendido na plataforma
+            </div>
+            <div className="mt-2 pt-2 border-t border-emerald-500/15">
+              <div className="text-[9px] font-extrabold text-emerald-300 font-mono uppercase tracking-wider">Você recebe (líq.)</div>
+              <div className="text-base font-black font-mono text-emerald-300 leading-none mt-0.5">
+                {repasseDe(metrics.recoveredValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </div>
+              <div className="text-[8px] text-emerald-300/60 font-medium mt-0.5 font-mono">
+                após comissão ValidaMais de {takeRatePct()}% ({comissaoDe(metrics.recoveredValue).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+              </div>
             </div>
           </div>
 

@@ -57,7 +57,7 @@ service cloud.firestore {
         'nomeLoja', 'quantidade', 'precoTotal', 'status',
         'criadoEm', 'atualizadoEm'
       ]) &&
-        data.keys().size() <= 18 &&
+        data.keys().size() <= 20 &&
         data.usuarioId is string && data.usuarioId.size() <= 128 &&
         data.usuarioEmail is string && data.usuarioEmail.size() <= 256 &&
         data.produtoId is string && data.produtoId.size() <= 128 &&
@@ -73,7 +73,10 @@ service cloud.firestore {
         (!data.keys().hasAny(['pagamentoStatus']) || (data.pagamentoStatus is string && data.pagamentoStatus.size() <= 20)) &&
         (!data.keys().hasAny(['mpPreferenceId']) || (data.mpPreferenceId is string && data.mpPreferenceId.size() <= 128)) &&
         (!data.keys().hasAny(['mpPaymentId']) || (data.mpPaymentId is string && data.mpPaymentId.size() <= 128)) &&
-        (!data.keys().hasAny(['valorPago']) || (data.valorPago is number));
+        (!data.keys().hasAny(['valorPago']) || (data.valorPago is number)) &&
+        (!data.keys().hasAny(['comissaoValor']) || (data.comissaoValor is number)) &&
+        (!data.keys().hasAny(['repasseValor']) || (data.repasseValor is number)) &&
+        (!data.keys().hasAny(['repasseStatus']) || (data.repasseStatus is string && data.repasseStatus.size() <= 20));
     }
 
     function isValidAvaliacao(data) {
