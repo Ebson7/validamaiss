@@ -516,6 +516,19 @@ export async function cancelReservation(reservaId: string): Promise<void> {
   }
 }
 
+// Conta quantos usuários se cadastraram pela indicação de um usuário (programa de indicação)
+export async function countReferrals(uid: string): Promise<number> {
+  if (!uid) return 0;
+  try {
+    const q = query(collection(db, 'usuarios'), where('referredBy', '==', uid));
+    const snap = await getDocs(q);
+    return snap.size;
+  } catch (error) {
+    console.warn('countReferrals falhou, usando 0:', error);
+    return 0;
+  }
+}
+
 // 9. Confirm reservation retrieved (Admins only)
 export async function updateReservationStatus(reservaId: string, status: 'retirado' | 'cancelado'): Promise<void> {
   const now = new Date().toISOString();

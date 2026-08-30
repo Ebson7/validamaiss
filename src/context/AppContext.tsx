@@ -47,6 +47,7 @@ export type ScreenType =
   | 'admin-reservas'
   | 'admin-categorias'
   | 'dados-cadastrais'
+  | 'convite'
   | 'ceo-dashboard';
 
 interface Alert {
@@ -891,10 +892,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLoading(true);
     const emailLower = email.trim().toLowerCase();
 
+    // Programa de indicação: quem trouxe este usuário (capturado do ?ref= no link).
+    let referredBy: string | undefined;
+    try { referredBy = localStorage.getItem('validamais_ref') || undefined; } catch { /* ignore */ }
+    const clearRef = () => { try { localStorage.removeItem('validamais_ref'); localStorage.removeItem('validamais_ref_em'); } catch { /* ignore */ } };
+
     try {
       // 1. Try real Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name, role, undefined, cnpj, telefone);
+      const userProfile = await createOrUpdateUserDocument(cred.user.uid, email, name, role, undefined, cnpj, telefone, referredBy);
+      if (referredBy) clearRef();
       // Send a REAL verification e-mail (Firebase-native link). Best-effort: a
       // failure here must not block the account that was already created.
       try {
@@ -921,8 +928,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error('E-mail já está em uso.');
       }
 
-      const userProfile = await createOrUpdateUserDocument(simulatedUid, emailLower, name.trim(), role, password, cnpj, telefone);
-      
+      const userProfile = await createOrUpdateUserDocument(simulatedUid, emailLower, name.trim(), role, password, cnpj, telefone, referredBy);
+      if (referredBy) clearRef();
+
       // Update local storage too
       const localUsersStr = localStorage.getItem('validamais_usuarios');
       const localUsers: Usuario[] = localUsersStr ? JSON.parse(localUsersStr) : [...DEFAULT_USERS];

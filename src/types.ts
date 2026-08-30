@@ -20,6 +20,7 @@ export interface Usuario {
   telefone?: string;
   senha?: string;
   criadoEm: any; // Firestore Timestamp
+  referredBy?: string;          // uid de quem indicou este usuário (programa de indicação)
   destaquePlano?: string;       // e.g. 'bronze' | 'ouro' | 'clube'
   destaqueAtivo?: boolean;
   destaqueMensagem?: string;

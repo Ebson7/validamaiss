@@ -20,6 +20,7 @@ import { AdminReservasValida } from './components/screens/AdminReservas';
 import { AdminCategoriasValida } from './components/screens/AdminCategorias';
 import { CeoDashboard } from './components/screens/CeoDashboard';
 import { DadosCadastraisValida } from './components/screens/DadosCadastrais';
+import { ConviteAmigos } from './components/screens/ConviteAmigos';
 import { AlertCircle, CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -55,6 +56,8 @@ function AppContent() {
         return <CeoDashboard />;
       case 'dados-cadastrais':
         return <DadosCadastraisValida />;
+      case 'convite':
+        return <ConviteAmigos />;
       default:
         return <HomeValida />;
     }

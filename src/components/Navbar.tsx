@@ -11,6 +11,7 @@ import {
   ClipboardList,
   AppWindow,
   ShoppingCart,
+  Gift,
   Bell,
   Settings,
   Trash2,
@@ -178,6 +179,20 @@ export const Navbar: React.FC = () => {
                   >
                     <ShoppingCart className="w-4 h-4" />
                     Minhas Reservas
+                  </button>
+                )}
+                {user && (
+                  <button
+                    id="nav_btn_convite"
+                    onClick={() => navigateTo('convite')}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      currentScreen === 'convite'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <Gift className="w-4 h-4" />
+                    Indique
                   </button>
                 )}
               </>

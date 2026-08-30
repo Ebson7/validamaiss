@@ -19,6 +19,15 @@ export function buildShareUrl(produtoId: string, ref?: string | null): string {
   return `${base}?${params.toString()}`;
 }
 
+/** Link de convite do app (sem produto específico), com atribuição de indicação. */
+export function buildInviteUrl(ref: string): string {
+  const base =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}`
+      : 'https://validamais.com/';
+  return `${base}?ref=${encodeURIComponent(ref)}`;
+}
+
 export type ShareResult = 'shared' | 'unsupported' | 'cancelled' | 'error';
 
 /** true quando o navegador oferece a bandeja de compartilhamento nativa. */
