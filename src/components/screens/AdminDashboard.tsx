@@ -9,7 +9,7 @@ import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, Tr
 import { Produto } from '../../types';
 
 export const AdminDashboardValida: React.FC = () => {
-  const { user, navigateTo, produtos, reservas: allReservas, avaliacoes, produtosLoading, reservasLoadingPre, clearAllDatabaseUsers, updateUserProfile, showAlert, saveProduct } = useApp();
+  const { user, navigateTo, produtos, reservas: allReservas, avaliacoes, produtosLoading, reservasLoadingPre, updateUserProfile, showAlert, saveProduct } = useApp();
 
   // Advertiser space local state
   const [sloganInput, setSloganInput] = useState(user?.destaqueMensagem || '');
@@ -1057,29 +1057,6 @@ export const AdminDashboardValida: React.FC = () => {
         </div>
       )}
 
-      {/* Database control panel */}
-      <div className="glass rounded-3xl border-red-200/60 p-6 bg-red-50/10 mt-2 border">
-        <h3 className="font-extrabold text-sm text-red-900 flex items-center gap-2">
-          <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-          Manutenção do Sistema (Limpeza & Reinicialização)
-        </h3>
-        <p className="text-xs text-gray-500 mt-2 max-w-2xl leading-relaxed">
-          Apaga <strong className="text-red-700">completamente</strong> todos os usuários cadastrados, reservas e produtos do Firestore e do armazenamento local.
-          Após a limpeza, a sessão é encerrada e o catálogo fica vazio — pronto para cadastros reais do zero.
-        </p>
-        <div className="mt-4">
-          <button
-            onClick={() => {
-              if (window.confirm("Deseja realmente limpar toda a base de dados de usuários personalizados, reservas antigas e produtos extras? Essa operação não pode ser desfeita.")) {
-                clearAllDatabaseUsers();
-              }
-            }}
-            className="px-4 py-2 bg-red-650 bg-red-600 hover:bg-red-750 transition-all text-white text-xs font-bold font-mono uppercase tracking-wider rounded-xl cursor-pointer"
-          >
-            Limpar Base e Começar do Zero
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 export const CeoDashboard: React.FC = () => {
-  const { navigateTo, user, showAlert, produtos, reservas } = useApp();
+  const { navigateTo, user, showAlert, produtos, reservas, clearAllDatabaseUsers } = useApp();
 
   // States
   const [merchants, setMerchants] = useState<Usuario[]>([]);
@@ -464,6 +464,31 @@ export const CeoDashboard: React.FC = () => {
           <p className="text-[11px] text-amber-800 leading-relaxed font-semibold">
             Como lojista destaque, qualquer e-mail que você defina como <strong className="font-extrabold">Ativo</strong> com plano Bronze ou Ouro entrará imediatamente no rodízio do Carrossel de Banners da Home. Isso permite testar layouts móveis e descontos em tempo real no simulador!
           </p>
+        </div>
+      </div>
+
+      {/* Manutenção da plataforma — exclusivo do admin/desenvolvedor */}
+      <div className="glass rounded-3xl border border-red-200/60 p-6 bg-red-50/10">
+        <h3 className="font-extrabold text-sm text-red-900 flex items-center gap-2">
+          <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+          Manutenção da Plataforma (Limpeza &amp; Reinicialização)
+        </h3>
+        <p className="text-xs text-gray-500 mt-2 max-w-2xl leading-relaxed">
+          Apaga <strong className="text-red-700">completamente</strong> todos os usuários cadastrados, reservas e produtos do Firestore e do armazenamento local.
+          Após a limpeza, a sessão é encerrada e o catálogo fica vazio — pronto para cadastros reais do zero.
+          Ferramenta restrita ao desenvolvedor; lojistas não têm acesso a ela.
+        </p>
+        <div className="mt-4">
+          <button
+            onClick={() => {
+              if (window.confirm('Deseja realmente limpar toda a base de dados de usuários personalizados, reservas antigas e produtos extras? Essa operação não pode ser desfeita.')) {
+                clearAllDatabaseUsers();
+              }
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 transition-all text-white text-xs font-bold font-mono uppercase tracking-wider rounded-xl cursor-pointer"
+          >
+            Limpar Base e Começar do Zero
+          </button>
         </div>
       </div>
 
