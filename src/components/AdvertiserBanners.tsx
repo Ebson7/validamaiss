@@ -85,7 +85,7 @@ export const AdvertiserBanners: React.FC = () => {
       <div className="space-y-1 sm:space-y-2">
         <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-none text-white">Clube ValidaMais</h3>
         <p className="text-xs sm:text-sm text-indigo-100 font-medium leading-relaxed max-w-lg">
-          Assine por apenas <strong>R$ 9,90/mês</strong> e poupe o meio ambiente garantindo <strong>5% de desconto EXTRA</strong> em todos os lotes, acesso prioritário com 1 hora de antecedência e selo de <strong>Herói Eco🌱</strong>!
+          Entre <strong>grátis</strong> como Membro Fundador e garanta <strong>5% de desconto EXTRA</strong> em todos os lotes, acesso prioritário e o selo de <strong>Herói Eco🌱</strong>. Sem mensalidade nesta fase!
         </p>
       </div>
     ),

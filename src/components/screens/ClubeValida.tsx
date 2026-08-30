@@ -39,7 +39,7 @@ export const ClubeValida: React.FC = () => {
   };
 
   const handleCancel = async () => {
-    if (!window.confirm('Deseja cancelar sua assinatura do Clube ValidaMais?')) return;
+    if (!window.confirm('Deseja sair do Clube ValidaMais? Você perde o desconto extra e o selo.')) return;
     try {
       await updateUserProfile({ clubeAtivo: false });
       showAlert('Assinatura do Clube cancelada.', 'info');
@@ -58,12 +58,12 @@ export const ClubeValida: React.FC = () => {
             <Crown className="w-3.5 h-3.5 text-amber-300" /> Clube ValidaMais
           </div>
           <h1 className="text-2xl sm:text-4xl font-black leading-tight tracking-tight">
-            {membro ? <>Você é <span className="text-amber-300">membro Herói Eco.</span></> : <>Economize mais,<br /><span className="text-amber-300">desperdice menos.</span></>}
+            {membro ? <>Você é <span className="text-amber-300">Membro Fundador.</span></> : <>Entre grátis como<br /><span className="text-amber-300">Membro Fundador.</span></>}
           </h1>
           <p className="text-sm sm:text-base text-indigo-50/85 font-medium max-w-md">
             {membro
-              ? 'Seu desconto extra de 5% já é aplicado automaticamente em todos os lotes. Obrigado por combater o desperdício!'
-              : <>Por apenas <strong className="text-white">R$ {CLUBE_PRECO_MENSAL.toFixed(2).replace('.', ',')}/mês</strong>, ganhe desconto extra em todos os lotes, acesso prioritário e o selo Herói Eco.</>}
+              ? 'Seu desconto extra de 5% já é aplicado automaticamente em todos os lotes. Obrigado por combater o desperdício desde o começo!'
+              : <>Estamos começando, e por isso o Clube é <strong className="text-white">grátis para os fundadores</strong>: desconto extra em todos os lotes, acesso prioritário e o selo Herói Eco — sem mensalidade nesta fase.</>}
           </p>
 
           {membro ? (
@@ -77,7 +77,7 @@ export const ClubeValida: React.FC = () => {
               className="inline-flex items-center gap-2 px-6 py-3.5 bg-white text-indigo-800 text-sm font-black rounded-full shadow-lg hover:shadow-xl cursor-pointer transition-all active:scale-[0.98] disabled:opacity-60"
             >
               {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
-              {processing ? 'Ativando...' : (user ? 'Assinar o Clube' : 'Criar conta e assinar')}
+              {processing ? 'Ativando...' : (user ? 'Entrar grátis no Clube' : 'Criar conta e entrar grátis')}
               {!processing && <ArrowRight className="w-4 h-4" />}
             </button>
           )}
@@ -103,10 +103,10 @@ export const ClubeValida: React.FC = () => {
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-gray-900">Sua assinatura</h3>
+              <h3 className="text-sm font-black text-gray-900">Membro Fundador</h3>
               <p className="text-xs text-gray-500 font-medium">
-                Membro desde {user?.clubeDesde ? new Date(user.clubeDesde).toLocaleDateString('pt-BR') : 'hoje'}
-                {user?.clubeValidoAte ? ` · válido até ${new Date(user.clubeValidoAte).toLocaleDateString('pt-BR')}` : ''}
+                No Clube desde {user?.clubeDesde ? new Date(user.clubeDesde).toLocaleDateString('pt-BR') : 'hoje'}
+                {user?.clubeValidoAte ? ` · válido até ${new Date(user.clubeValidoAte).toLocaleDateString('pt-BR')}` : ' · sem mensalidade'}
               </p>
             </div>
           </div>
@@ -114,14 +114,15 @@ export const ClubeValida: React.FC = () => {
             onClick={handleCancel}
             className="text-xs font-bold text-gray-500 hover:text-rose-600 border border-gray-200 hover:border-rose-200 hover:bg-rose-50 px-4 py-2.5 rounded-full cursor-pointer transition-all"
           >
-            Cancelar assinatura
+            Sair do Clube
           </button>
         </section>
       ) : (
         <section className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-3xl p-6">
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-indigo-700">R$ {CLUBE_PRECO_MENSAL.toFixed(2).replace('.', ',')}</span>
-            <span className="text-sm text-gray-500 font-semibold">/mês · cancele quando quiser</span>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-3xl font-black text-indigo-700">Grátis</span>
+            <span className="text-sm text-gray-500 font-semibold">para Membros Fundadores</span>
+            <span className="text-xs text-gray-400 font-semibold line-through">R$ {CLUBE_PRECO_MENSAL.toFixed(2).replace('.', ',')}/mês</span>
           </div>
           <ul className="mt-4 space-y-2">
             {CLUBE_BENEFICIOS.map((b, i) => (
@@ -136,14 +137,14 @@ export const ClubeValida: React.FC = () => {
             className="mt-5 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-full cursor-pointer transition-all active:scale-95 disabled:opacity-60"
           >
             {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
-            {processing ? 'Ativando...' : (user ? 'Assinar o Clube' : 'Criar conta e assinar')}
+            {processing ? 'Ativando...' : (user ? 'Entrar grátis no Clube' : 'Criar conta e entrar grátis')}
           </button>
         </section>
       )}
 
       <p className="text-[11px] text-gray-400 font-medium flex items-start gap-1.5">
         <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        Estamos em fase inicial: a ativação é sem cobrança por enquanto. A assinatura recorrente entra assim que o pagamento estiver disponível — você será avisado antes de qualquer cobrança.
+        Nossa missão agora é conectar quem tem lotes a vencer com quem quer aproveitá-los. Por isso o Clube é grátis para os fundadores. Se um dia houver mensalidade, você será avisado antes — e quem entrou como fundador tem prioridade.
       </p>
     </div>
   );

@@ -18,7 +18,7 @@ import {
 
 const TIERS = [
   { n: 1, icon: <Leaf className="w-4 h-4" />, titulo: 'Selo "Amigo do Planeta"', desc: '1 amigo indicado' },
-  { n: 3, icon: <Ticket className="w-4 h-4" />, titulo: '1 mês de Clube ValidaMais', desc: '3 amigos indicados' },
+  { n: 3, icon: <Ticket className="w-4 h-4" />, titulo: 'Clube grátis pra sempre', desc: '3 amigos — fundador vitalício' },
   { n: 5, icon: <Trophy className="w-4 h-4" />, titulo: 'Selo "Herói Eco" + destaque', desc: '5 amigos indicados' },
 ];
 
@@ -31,9 +31,9 @@ export const ConviteAmigos: React.FC = () => {
   const handleClaimClube = async () => {
     setClaiming(true);
     try {
-      const ate = new Date(Date.now() + 30 * 864e5).toISOString();
-      await updateUserProfile({ clubeAtivo: true, clubeDesde: user?.clubeDesde || new Date().toISOString(), clubeValidoAte: ate });
-      showAlert('Recompensa resgatada! Você tem 1 mês de Clube ValidaMais. 💚', 'success');
+      // Fundador vitalício: Clube grátis sem validade, mantido mesmo se um dia houver mensalidade.
+      await updateUserProfile({ clubeAtivo: true, clubeDesde: user?.clubeDesde || new Date().toISOString() });
+      showAlert('Recompensa garantida! Você é Membro Fundador vitalício do Clube. 💚', 'success');
     } catch {
       showAlert('Não foi possível resgatar agora. Tente novamente.', 'error');
     } finally {
@@ -194,7 +194,7 @@ export const ConviteAmigos: React.FC = () => {
                     className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black rounded-lg cursor-pointer transition-all active:scale-95 disabled:opacity-60"
                   >
                     {claiming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ticket className="w-3.5 h-3.5" />}
-                    Resgatar 1 mês grátis
+                    Garantir Clube grátis pra sempre
                   </button>
                 )}
                 {t.n === 3 && unlocked && isClubeAtivo(user) && (
