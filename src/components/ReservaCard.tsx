@@ -9,30 +9,12 @@ import { Reserva } from '../types';
 import { ShoppingBag, Calendar, CheckSquare, XCircle, Store, User, Mail, Phone, DollarSign, Star, CheckCircle2, Ticket, ShieldCheck, ShieldAlert, Copy, Check, ExternalLink, CreditCard, BadgeCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { isPagamentoConfigurado, iniciarPagamentoMP } from '../lib/pagamento';
+import { getPickupCode, normalizePickupCode } from '../lib/pickup';
 
 interface ReservaCardProps {
   reserva: Reserva;
   isAdminView: boolean;
   onStatusUpdate: (reservaId: string, newStatus: 'retirado' | 'cancelado') => Promise<void>;
-}
-
-// Deterministic fallback pickup code for reservations created before the feature
-// existed (no codigoRetirada stored). Both the customer's card and the lojista's
-// validation derive the SAME code from the reservation id, so validation still works.
-const PICKUP_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-function derivePickupCode(seed: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += PICKUP_ALPHABET[h % PICKUP_ALPHABET.length];
-    h = Math.floor(h / PICKUP_ALPHABET.length) + (seed.charCodeAt(i % seed.length) || 7) * (i + 13);
-    h = h >>> 0;
-  }
-  return `VM-${code}`;
 }
 
 export const ReservaCard: React.FC<ReservaCardProps> = ({
@@ -62,7 +44,7 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
   };
 
   // Always have a pickup code to show/validate — stored one, or a stable fallback.
-  const pickupCode = reserva.codigoRetirada || derivePickupCode(reserva.id || 'RES');
+  const pickupCode = getPickupCode(reserva);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -74,8 +56,7 @@ export const ReservaCard: React.FC<ReservaCardProps> = ({
   const [copied, setCopied] = useState(false);
 
   // Normalize codes so validation ignores case, spaces and an optional VM- prefix
-  const normalizeCode = (value: string) =>
-    value.toUpperCase().replace(/\s+/g, '').replace(/^VM-?/, '');
+  const normalizeCode = normalizePickupCode;
 
   const handleCopyCode = async () => {
     try {

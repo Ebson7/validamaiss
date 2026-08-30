@@ -6,6 +6,7 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { ReservaCard } from '../ReservaCard';
+import { RetiradaScanner } from '../RetiradaScanner';
 import { Loader2, ClipboardList, Info } from 'lucide-react';
 
 export const AdminReservasValida: React.FC = () => {
@@ -43,7 +44,7 @@ export const AdminReservasValida: React.FC = () => {
       {/* Title */}
       <div>
         <h1 className="text-3xl font-black text-gray-900 leading-tight">Reservas Solicitadas</h1>
-        <p className="text-sm text-gray-500 font-semibold mt-1">Veja a listagem de reservas feitas por clientes, confira o email de retirada e dê as baixas pertinentes</p>
+        <p className="text-sm text-gray-500 font-semibold mt-1">Valide a retirada pelo QR ou código de retirada do cliente e dê baixa nas reservas retiradas</p>
       </div>
 
       {loading ? (
@@ -53,6 +54,13 @@ export const AdminReservasValida: React.FC = () => {
         </div>
       ) : myReservas.length > 0 ? (
         <div className="space-y-4 max-w-4xl">
+          {/* Validador de retirada (QR / código) */}
+          <RetiradaScanner
+            reservas={myReservas}
+            produtos={produtos}
+            onConfirm={(reservaId) => handleAdminStatusUpdate(reservaId, 'retirado')}
+          />
+
           {/* Resumo */}
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
@@ -72,8 +80,8 @@ export const AdminReservasValida: React.FC = () => {
           <div className="glass border-white/40 rounded-2xl p-4 bg-white/40 flex gap-3 text-xs leading-relaxed text-slate-700">
             <Info className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold uppercase font-mono tracking-wide mb-0.5 text-slate-800">Dica de Atendimento ao Cliente:</p>
-              <p>Confirme a identidade do cliente comparando o e-mail ou o nome fornecido no momento do atendimento presencial. Uma vez que o cliente realizar o pagamento físico no caixa tradicional do mercado, clique em <strong>"Confirmar Retirada"</strong> para dar baixa oficial do saldo correspondente.</p>
+              <p className="font-bold uppercase font-mono tracking-wide mb-0.5 text-slate-800">Como validar a retirada:</p>
+              <p>Peça o <strong>código de retirada</strong> (ou o QR Code) que o cliente tem no app. Use <strong>"Validar retirada"</strong> acima para escanear o QR ou digitar o código — a reserva certa é encontrada e você confirma com um toque. Também é possível dar baixa direto no card usando <strong>"Confirmar Retirada"</strong>.</p>
             </div>
           </div>
 
