@@ -9,7 +9,7 @@ import { Package, ShoppingBag, Clock, CheckSquare, PlusCircle, ClipboardList, Tr
 import { Produto } from '../../types';
 
 export const AdminDashboardValida: React.FC = () => {
-  const { user, navigateTo, produtos, reservas: allReservas, produtosLoading, reservasLoadingPre, clearAllDatabaseUsers, updateUserProfile, showAlert, saveProduct } = useApp();
+  const { user, navigateTo, produtos, reservas: allReservas, avaliacoes, produtosLoading, reservasLoadingPre, clearAllDatabaseUsers, updateUserProfile, showAlert, saveProduct } = useApp();
 
   // Advertiser space local state
   const [sloganInput, setSloganInput] = useState(user?.destaqueMensagem || '');
@@ -116,6 +116,7 @@ export const AdminDashboardValida: React.FC = () => {
   // 2. Scan reservations and compute metrics
   let pending = 0;
   let withdrawn = 0;
+  let canceled = 0;
   let savedCount = 0;
   let recoveredValue = 0;      // Value received from ValidaMais sales (status === 'retirado')
   let pendingValue = 0;        // Value reserved/pending in progress
@@ -123,33 +124,79 @@ export const AdminDashboardValida: React.FC = () => {
 
   const myProductIds = new Set(myProducts.map(p => p.id).filter(Boolean) as string[]);
 
+  // Desempenho por lote (para o ranking)
+  type PerfRow = { produtoId: string; nome: string; reservas: number; retiradas: number; receita: number };
+  const perfMap = new Map<string, PerfRow>();
+
   allReservas.forEach((res) => {
     if (!myProductIds.has(res.produtoId)) return;
     const prod = produtos.find(p => p.id === res.produtoId);
     const originalUnitPrice = prod ? prod.precoOriginal : (res.precoTotal / res.quantidade) * 2.22;
 
+    const row = perfMap.get(res.produtoId) || {
+      produtoId: res.produtoId,
+      nome: prod?.nomeProduto || res.nomeProduto,
+      reservas: 0,
+      retiradas: 0,
+      receita: 0,
+    };
+
     if (res.status === 'pendente') {
       pending++;
       pendingValue += res.precoTotal;
+      row.reservas++;
     }
     if (res.status === 'retirado') {
       withdrawn++;
       savedCount += res.quantidade;
       recoveredValue += res.precoTotal;
       avoidedLossValue += (originalUnitPrice * res.quantidade);
+      row.reservas++;
+      row.retiradas++;
+      row.receita += res.precoTotal;
     }
+    if (res.status === 'cancelado') {
+      canceled++;
+    }
+    perfMap.set(res.produtoId, row);
   });
+
+  const topLotes = Array.from(perfMap.values())
+    .sort((a, b) => b.receita - a.receita || b.retiradas - a.retiradas || b.reservas - a.reservas)
+    .slice(0, 5);
+  const maxReceita = topLotes.reduce((m, r) => Math.max(m, r.receita), 0);
 
   const metrics = {
     totalProducts: myProducts.length,
     pendingReservations: pending,
     withdrawnReservations: withdrawn,
+    canceledReservations: canceled,
     itemsSaved: savedCount,
     recoveredValue,
     pendingValue,
     avoidedLossValue,
-    totalLossAvoidedPercent: avoidedLossValue > 0 ? ((recoveredValue / avoidedLossValue) * 100) : 0
+    totalLossAvoidedPercent: avoidedLossValue > 0 ? ((recoveredValue / avoidedLossValue) * 100) : 0,
+    // Taxa de retirada = retiradas / (retiradas + canceladas) — qualidade da conversão
+    taxaRetirada: (withdrawn + canceled) > 0 ? (withdrawn / (withdrawn + canceled)) * 100 : 0,
   };
+
+  // Reputação da loja: avaliações dos clientes referentes às lojas deste lojista
+  const getRevTime = (v: any) => {
+    try { return (v?.toDate ? v.toDate() : new Date(v)).getTime() || 0; } catch { return 0; }
+  };
+  const myStoreNames = new Set<string>(
+    myProducts.map(p => (p.nomeLoja || '').toLowerCase().trim()).filter(Boolean)
+  );
+  if (user?.nome) myStoreNames.add(user.nome.toLowerCase().trim());
+  const myReviews = (avaliacoes || [])
+    .filter(a => myStoreNames.has((a.nomeLoja || '').toLowerCase().trim()))
+    .sort((a, b) => getRevTime(b.criadoEm) - getRevTime(a.criadoEm));
+  const reviewCount = myReviews.length;
+  const avgRating = reviewCount > 0 ? myReviews.reduce((s, a) => s + a.estrelas, 0) / reviewCount : 0;
+  const starDist = [5, 4, 3, 2, 1].map(star => ({
+    star,
+    n: myReviews.filter(a => a.estrelas === star).length,
+  }));
 
   const handleUpdateSlogan = async () => {
     try {
@@ -488,6 +535,114 @@ export const AdminDashboardValida: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Reputação & Desempenho dos lotes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Reputação da loja */}
+        <div className="glass border-white/50 rounded-3xl p-6 shadow-xs">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Star className="w-4.5 h-4.5 text-amber-400 fill-amber-400" /> Reputação da sua loja
+              </h3>
+              <p className="text-[11px] text-gray-500 font-semibold mt-0.5">O que seus clientes avaliaram após retirar</p>
+            </div>
+          </div>
+
+          {reviewCount === 0 ? (
+            <div className="py-8 text-center border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+              <Star className="w-7 h-7 text-gray-300 mx-auto mb-2" />
+              <h4 className="text-sm font-black text-gray-700">Ainda sem avaliações</h4>
+              <p className="text-[11px] text-gray-500 max-w-xs mx-auto mt-1">Assim que os clientes retirarem e avaliarem, a nota da sua loja aparece aqui.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-5">
+                <div className="text-center shrink-0">
+                  <div className="text-4xl font-black text-amber-500 leading-none">{avgRating.toFixed(1)}</div>
+                  <div className="flex items-center gap-0.5 justify-center mt-1.5">
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <Star key={s} className={`w-3.5 h-3.5 ${s <= Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+                    ))}
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-bold mt-1 font-mono uppercase tracking-wide">{reviewCount} avaliaç{reviewCount === 1 ? 'ão' : 'ões'}</div>
+                </div>
+                <div className="flex-1 space-y-1">
+                  {starDist.map(({ star, n }) => (
+                    <div key={star} className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-gray-400 font-mono w-3 shrink-0">{star}</span>
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${reviewCount > 0 ? (n / reviewCount) * 100 : 0}%` }} />
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-400 font-mono w-4 text-right shrink-0">{n}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                {myReviews.slice(0, 3).map((rev) => (
+                  <div key={rev.id} className="bg-white/60 border border-gray-100 rounded-2xl p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <Star key={s} className={`w-3 h-3 ${s <= rev.estrelas ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-gray-400 font-mono truncate max-w-[10rem]">{rev.usuarioEmail}</span>
+                    </div>
+                    {rev.comentario && <p className="text-xs text-gray-700 italic font-medium mt-1.5 leading-snug">"{rev.comentario}"</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Desempenho dos lotes */}
+        <div className="glass border-white/50 rounded-3xl p-6 shadow-xs">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Trophy className="w-4.5 h-4.5 text-emerald-600" /> Lotes que mais vendem
+              </h3>
+              <p className="text-[11px] text-gray-500 font-semibold mt-0.5">Ranking por receita recuperada</p>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-lg font-black text-emerald-600 leading-none">{metrics.taxaRetirada.toFixed(0)}%</div>
+              <div className="text-[9px] text-gray-400 font-bold font-mono uppercase tracking-wide mt-0.5">Taxa de retirada</div>
+            </div>
+          </div>
+
+          {topLotes.length === 0 ? (
+            <div className="py-8 text-center border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+              <TrendingUp className="w-7 h-7 text-gray-300 mx-auto mb-2" />
+              <h4 className="text-sm font-black text-gray-700">Sem vendas ainda</h4>
+              <p className="text-[11px] text-gray-500 max-w-xs mx-auto mt-1">Quando seus lotes forem reservados e retirados, o ranking de desempenho aparece aqui.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {topLotes.map((row, i) => (
+                <div key={row.produtoId} className="flex items-center gap-3">
+                  <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 font-mono ${i === 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-black text-gray-800 truncate">{row.nome}</span>
+                      <span className="text-xs font-black text-emerald-600 shrink-0">{row.receita.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full" style={{ width: `${maxReceita > 0 ? (row.receita / maxReceita) * 100 : 0}%` }} />
+                      </div>
+                      <span className="text-[10px] text-gray-400 font-semibold font-mono shrink-0">{row.retiradas}/{row.reservas} retir.</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Admin Shortcuts Grid layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
