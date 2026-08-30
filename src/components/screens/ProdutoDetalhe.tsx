@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Reserva } from '../../types';
 import { isPagamentoConfigurado, iniciarPagamentoMP } from '../../lib/pagamento';
+import { buildShareUrl, nativeShare, hasNativeShare } from '../../lib/share';
 import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
@@ -93,10 +94,8 @@ export const ProdutoDetalheValida: React.FC = () => {
   const totalAvailable = produto.quantidadeDisponivel - produto.quantidadeReservada;
   const isEsgotado = totalAvailable <= 0 || produto.status === 'esgotado';
 
-  // Construct sharing details
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}${window.location.pathname}?prodId=${produto?.id}`
-    : `https://validamais.com/produtos?prodId=${produto?.id}`;
+  // Link com deep-link (?prodId=) e atribuição de indicação (?ref=)
+  const shareUrl = buildShareUrl(produto?.id || '', user?.uid);
 
   const discountFormatted = discountPercent > 0 ? `(${discountPercent}% OFF!)` : '';
 
@@ -113,6 +112,16 @@ Não perca essa oportunidade de economizar e evitar o desperdício alimentar! Ve
 👇👇👇
 ${shareUrl}`
     : '';
+
+  const handleNativeShareDetail = async () => {
+    const res = await nativeShare({
+      title: produto ? `${produto.nomeProduto} · ValidaMais` : 'ValidaMais',
+      text: shareText,
+      url: shareUrl,
+    });
+    if (res === 'shared') showAlert('Obrigado por divulgar! 💚', 'success');
+    else if (res === 'unsupported') handleShareWhatsAppDetail();
+  };
 
   const handleShareWhatsAppDetail = () => {
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
@@ -343,6 +352,16 @@ ${shareUrl}`
             <div className="bg-white/40 backdrop-blur-xs border border-white/50 p-4 rounded-2xl space-y-2.5">
               <span className="text-[10px] font-bold text-gray-400 font-mono uppercase tracking-wider block">Gostou desse lote? Compartilhe essa oferta!</span>
               <div className="flex flex-wrap items-center gap-2">
+                {hasNativeShare() && (
+                  <button
+                    type="button"
+                    onClick={handleNativeShareDetail}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    <Share2 className="w-4 h-4 shrink-0" />
+                    Compartilhar
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleShareWhatsAppDetail}
@@ -648,6 +667,14 @@ ${shareUrl}`
                 </div>
                 <p className="text-[10px] text-gray-400 text-center pt-1">Pagamento no balcão, no momento da retirada.</p>
               </div>
+
+              {/* Momento viral: convide amigos para a mesma oferta */}
+              <button
+                onClick={handleNativeShareDetail}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-full cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <Share2 className="w-4 h-4" /> Contar para um amigo
+              </button>
 
               {/* Ações */}
               <div className="flex flex-col gap-2 pt-1">

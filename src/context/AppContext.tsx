@@ -286,6 +286,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (typeof window !== 'undefined') {
       try {
         const params = new URLSearchParams(window.location.search);
+        // Atribuição de indicação: guarda quem trouxe este visitante (para medir
+        // crescimento e, futuramente, recompensar quem divulga).
+        const ref = params.get('ref');
+        if (ref) {
+          try {
+            if (!localStorage.getItem('validamais_ref')) {
+              localStorage.setItem('validamais_ref', ref);
+              localStorage.setItem('validamais_ref_em', new Date().toISOString());
+            }
+          } catch { /* ignore */ }
+        }
         const sharedProdId = params.get('prodId');
         if (sharedProdId) {
           setSelectedProductId(sharedProdId);

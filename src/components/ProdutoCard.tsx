@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext';
 import { Produto } from '../types';
 import { formatDistance } from '../lib/geo';
 import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check, Heart, Navigation } from 'lucide-react';
+import { buildShareUrl, nativeShare, hasNativeShare } from '../lib/share';
 
 interface ProdutoCardProps {
   produto: Produto;
@@ -32,10 +33,8 @@ export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto, distanceKm })
   const promo = produto.precoPromocional;
   const discountPercent = original > 0 ? Math.round(((original - promo) / original) * 100) : 0;
 
-  // Construct absolute sharing links using clean URLSearchParams
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}${window.location.pathname}?prodId=${produto.id}`
-    : `https://validamais.com/produtos?prodId=${produto.id}`;
+  // Link absoluto com deep-link (?prodId=) e atribuição de indicação (?ref=)
+  const shareUrl = buildShareUrl(produto.id || '', user?.uid);
 
   const discountFormatted = discountPercent > 0 ? `(${discountPercent}% OFF!)` : '';
 
@@ -50,6 +49,18 @@ export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto, distanceKm })
 Não perca essa oportunidade de economizar e evitar o desperdício alimentar! Veja mais detalhes e reserve aqui:
 👇👇👇
 ${shareUrl}`;
+
+  // Compartilhamento nativo (bandeja do SO) — usado primeiro no mobile
+  const handleNativeOrMenu = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (hasNativeShare()) {
+      const res = await nativeShare({ title: `${produto.nomeProduto} · ValidaMais`, text: shareText, url: shareUrl });
+      if (res === 'shared') { showAlert('Obrigado por divulgar! 💚', 'success'); return; }
+      if (res === 'cancelled') return;
+      // 'unsupported' ou 'error' → cai no menu manual
+    }
+    setShowShareMenu((v) => !v);
+  };
 
   const handleShareWhatsApp = () => {
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
@@ -290,10 +301,7 @@ ${shareUrl}`;
 
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowShareMenu(!showShareMenu);
-                }}
+                onClick={handleNativeOrMenu}
                 className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
                   showShareMenu
                     ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
