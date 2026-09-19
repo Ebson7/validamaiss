@@ -20,6 +20,7 @@ import { auth, db, handleFirestoreError, OperationType, messaging } from '../lib
 import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
 import { lerRetornoPagamento, limparRetornoPagamento } from '../lib/pagamento';
 import { descontoReservaFrac } from '../lib/clube';
+import { descontoDinamicoFrac, combinarDescontos } from '../lib/precoDinamico';
 import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem, Favorito, FavoritoLoja } from '../types';
 import { 
   getProducts, 
@@ -1043,7 +1044,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!user) {
         throw new Error('Identificação necessária: faça login para reservar.');
       }
-      const res = await dbCreateReservation(user.uid, user.email, produtoId, quantidade, user.telefone, descontoReservaFrac(user));
+      // Desconto final = Clube + preço dinâmico (validade) — combinados.
+      const prod = produtos.find(p => p.id === produtoId);
+      const fracDinamico = prod ? descontoDinamicoFrac(prod.dataValidade) : 0;
+      const fracFinal = combinarDescontos(descontoReservaFrac(user), fracDinamico);
+      const res = await dbCreateReservation(user.uid, user.email, produtoId, quantidade, user.telefone, fracFinal);
       showAlert('Reserva efetuada com sucesso! Retire em loja física.', 'success');
       return res;
     } catch (err: any) {

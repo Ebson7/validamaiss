@@ -9,6 +9,7 @@ import { Produto } from '../types';
 import { formatDistance } from '../lib/geo';
 import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check, Heart, Navigation } from 'lucide-react';
 import { buildShareUrl, nativeShare, hasNativeShare } from '../lib/share';
+import { precoDinamico } from '../lib/precoDinamico';
 
 interface ProdutoCardProps {
   produto: Produto;
@@ -134,6 +135,9 @@ ${shareUrl}`;
   };
 
   const expiry = checkExpiryStatus(produto.dataValidade);
+  // Preço dinâmico: desconto extra que cresce conforme a validade se aproxima.
+  const pd = precoDinamico(produto);
+  const precoEfetivo = pd.aplicado ? pd.preco : promo;
   const totalAvailable = produto.quantidadeDisponivel - produto.quantidadeReservada;
   const isEsgotado = totalAvailable <= 0 || produto.status === 'esgotado';
 
@@ -396,11 +400,16 @@ ${shareUrl}`;
         <div className="mt-4 pt-3 border-t border-gray-100 flex items-end justify-between gap-2">
           <div className="flex flex-col">
             <span className="text-[10px] text-gray-400 font-mono line-through font-medium">
-              {formatCurrency(produto.precoOriginal)}
+              {formatCurrency(pd.aplicado ? produto.precoPromocional : produto.precoOriginal)}
             </span>
             <span className="text-lg font-black text-emerald-600 leading-tight">
-              {formatCurrency(produto.precoPromocional)}
+              {formatCurrency(precoEfetivo)}
             </span>
+            {pd.aplicado && !isEsgotado && !expiry.isExpired && (
+              <span className="mt-0.5 inline-flex items-center gap-1 self-start text-[9px] font-black text-rose-700 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-md font-mono uppercase tracking-wide">
+                🔥 -{pd.extraPct}% validade
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col items-end text-right">
