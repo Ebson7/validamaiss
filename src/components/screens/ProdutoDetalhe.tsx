@@ -11,7 +11,7 @@ import { buildShareUrl, nativeShare, hasNativeShare } from '../../lib/share';
 import { isClubeAtivo, precoClube, descontoReservaFrac } from '../../lib/clube';
 import { descontoDinamicoFrac, combinarDescontos } from '../../lib/precoDinamico';
 import { descontoReativacaoFrac } from '../../lib/reativacao';
-import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X } from 'lucide-react';
+import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X, ShoppingBag } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
   const { 
@@ -27,7 +27,8 @@ export const ProdutoDetalheValida: React.FC = () => {
     isFavoritado, 
     toggleFavorito,
     isLojaFavoritada,
-    toggleFavoritoLoja
+    toggleFavoritoLoja,
+    adicionarAoCarrinho
   } = useApp();
   const [quantidade, setQuantidade] = useState(1);
   const [reserving, setReserving] = useState(false);
@@ -555,6 +556,14 @@ ${shareUrl}`
                       <p className="text-[10px] text-gray-500 leading-tight text-center flex items-center justify-center gap-1">
                         <ShieldCheck className="w-3 h-3 text-emerald-500" /> Pagamento seguro via Mercado Pago. Retire na loja com seu código.
                       </p>
+                    )}
+                    {!isEsgotado && !expiry.isExpired && (
+                      <button
+                        onClick={() => produto.id && adicionarAoCarrinho(produto.id, quantidade)}
+                        className="w-full mt-2 py-2.5 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <ShoppingBag className="w-4 h-4" /> Adicionar à sacola
+                      </button>
                     )}
                     </>
                   )

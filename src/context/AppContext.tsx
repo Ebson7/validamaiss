@@ -52,11 +52,17 @@ export type ScreenType =
   | 'dados-cadastrais'
   | 'convite'
   | 'clube'
+  | 'sacola'
   | 'ceo-dashboard';
 
 interface Alert {
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
+}
+
+export interface CarrinhoItem {
+  produtoId: string;
+  quantidade: number;
 }
 
 interface AppContextType {
@@ -107,6 +113,13 @@ interface AppContextType {
   isLojaFavoritada: (nomeLoja: string) => boolean;
   toggleFavoritoLoja: (nomeLoja: string) => Promise<void>;
   updateUserProfile: (dados: Partial<Usuario>) => Promise<void>;
+  carrinho: CarrinhoItem[];
+  carrinhoCount: number;
+  adicionarAoCarrinho: (produtoId: string, quantidade?: number) => void;
+  removerDoCarrinho: (produtoId: string) => void;
+  setQuantidadeCarrinho: (produtoId: string, quantidade: number) => void;
+  limparCarrinho: () => void;
+  finalizarCarrinho: () => Promise<number>;
 }
 
 const DEFAULT_USERS: Usuario[] = [
@@ -217,6 +230,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
   const [favoritosLojasLoading, setFavoritosLojasLoading] = useState(true);
+  const [carrinho, setCarrinho] = useState<CarrinhoItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('validamais_carrinho');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [notificationsPermission, setNotificationsPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -1446,6 +1465,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // ── Carrinho / Sacola (reserva multi-loja) ──
+  const persistCarrinho = (items: CarrinhoItem[]) => {
+    setCarrinho(items);
+    try { localStorage.setItem('validamais_carrinho', JSON.stringify(items)); } catch { /* ignore */ }
+  };
+
+  const carrinhoCount = carrinho.reduce((sum, it) => sum + it.quantidade, 0);
+
+  const adicionarAoCarrinho = (produtoId: string, quantidade: number = 1) => {
+    if (!produtoId) return;
+    const prod = produtos.find(p => p.id === produtoId);
+    if (!prod) { showAlert('Produto não encontrado.', 'error'); return; }
+    const disponivel = prod.quantidadeDisponivel - prod.quantidadeReservada;
+    const atual = carrinho.find(it => it.produtoId === produtoId)?.quantidade || 0;
+    const desejado = Math.min(atual + quantidade, Math.max(1, disponivel));
+    if (disponivel <= 0) { showAlert('Este lote está esgotado.', 'warning'); return; }
+    const existe = carrinho.some(it => it.produtoId === produtoId);
+    const next = existe
+      ? carrinho.map(it => it.produtoId === produtoId ? { ...it, quantidade: desejado } : it)
+      : [...carrinho, { produtoId, quantidade: desejado }];
+    persistCarrinho(next);
+    showAlert('Item adicionado à sacola! 🛍️', 'success');
+  };
+
+  const removerDoCarrinho = (produtoId: string) => {
+    persistCarrinho(carrinho.filter(it => it.produtoId !== produtoId));
+  };
+
+  const setQuantidadeCarrinho = (produtoId: string, quantidade: number) => {
+    if (quantidade <= 0) { removerDoCarrinho(produtoId); return; }
+    const prod = produtos.find(p => p.id === produtoId);
+    const disponivel = prod ? (prod.quantidadeDisponivel - prod.quantidadeReservada) : quantidade;
+    const q = Math.min(quantidade, Math.max(1, disponivel));
+    persistCarrinho(carrinho.map(it => it.produtoId === produtoId ? { ...it, quantidade: q } : it));
+  };
+
+  const limparCarrinho = () => persistCarrinho([]);
+
+  // Finaliza a sacola criando uma reserva por item (agrupadas por loja na tela).
+  // Reaproveita a mesma composição de desconto da reserva unitária.
+  const finalizarCarrinho = async (): Promise<number> => {
+    if (!user) {
+      showAlert('Faça login para finalizar sua sacola.', 'warning');
+      navigateTo('login');
+      return 0;
+    }
+    if (carrinho.length === 0) {
+      showAlert('Sua sacola está vazia.', 'info');
+      return 0;
+    }
+    setLoading(true);
+    let sucesso = 0;
+    const falhas: string[] = [];
+    try {
+      for (const item of carrinho) {
+        const prod = produtos.find(p => p.id === item.produtoId);
+        try {
+          const fracDinamico = prod ? descontoDinamicoFrac(prod.dataValidade) : 0;
+          const fracFinal = combinarDescontos(
+            descontoReservaFrac(user),
+            fracDinamico,
+            descontoReativacaoFrac(user, reservas)
+          );
+          await dbCreateReservation(user.uid, user.email, item.produtoId, item.quantidade, user.telefone, fracFinal);
+          sucesso++;
+        } catch (err: any) {
+          falhas.push(prod?.nomeProduto || item.produtoId);
+        }
+      }
+      persistCarrinho([]);
+      if (sucesso > 0 && falhas.length === 0) {
+        showAlert(`${sucesso} ${sucesso === 1 ? 'reserva efetuada' : 'reservas efetuadas'} com sucesso! Retire em loja.`, 'success');
+        navigateTo('minhas-reservas');
+      } else if (sucesso > 0) {
+        showAlert(`${sucesso} reservada(s), mas falhou em: ${falhas.join(', ')}.`, 'warning');
+        navigateTo('minhas-reservas');
+      } else {
+        showAlert('Não foi possível reservar os itens da sacola.', 'error');
+      }
+      return sucesso;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isFCMSupported = !!messaging;
 
   return (
@@ -1497,7 +1601,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         favoritosLojasLoading,
         isLojaFavoritada,
         toggleFavoritoLoja,
-        updateUserProfile
+        updateUserProfile,
+        carrinho,
+        carrinhoCount,
+        adicionarAoCarrinho,
+        removerDoCarrinho,
+        setQuantidadeCarrinho,
+        limparCarrinho,
+        finalizarCarrinho
       }}
     >
       {children}

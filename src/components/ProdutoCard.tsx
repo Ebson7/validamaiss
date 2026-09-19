@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Produto } from '../types';
 import { formatDistance } from '../lib/geo';
-import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check, Heart, Navigation } from 'lucide-react';
+import { Calendar, Store, MapPin, AlertCircle, ShoppingCart, Share2, Copy, Check, Heart, Navigation, ShoppingBag } from 'lucide-react';
 import { buildShareUrl, nativeShare, hasNativeShare } from '../lib/share';
 import { precoDinamico } from '../lib/precoDinamico';
 
@@ -22,10 +22,11 @@ export const ProdutoCard: React.FC<ProdutoCardProps> = ({ produto, distanceKm })
     user, 
     avaliacoes, 
     showAlert, 
-    isFavoritado, 
+    isFavoritado,
     toggleFavorito,
     isLojaFavoritada,
-    toggleFavoritoLoja
+    toggleFavoritoLoja,
+    adicionarAoCarrinho
   } = useApp();
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -423,13 +424,23 @@ ${shareUrl}`;
                   {totalAvailable <= 5 && '⚡ '}
                   {totalAvailable} unidades restantes
                 </span>
-                <button
-                  id={`btn_reserva_link_${produto.id}`}
-                  onClick={() => navigateTo('produto-detalhe', produto.id)}
-                  className="mt-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 font-mono hover:ps-5 transition-all duration-300 ps-4 pe-4 py-1.5 rounded-xl cursor-pointer shadow-xs hover:shadow-md flex items-center gap-1"
-                >
-                  Reservar
-                </button>
+                <div className="mt-2.5 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); if (produto.id) adicionarAoCarrinho(produto.id); }}
+                    className="p-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all cursor-pointer flex items-center justify-center shadow-xs"
+                    title="Adicionar à sacola"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    id={`btn_reserva_link_${produto.id}`}
+                    onClick={() => navigateTo('produto-detalhe', produto.id)}
+                    className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 font-mono hover:ps-5 transition-all duration-300 ps-4 pe-4 py-1.5 rounded-xl cursor-pointer shadow-xs hover:shadow-md flex items-center gap-1"
+                  >
+                    Reservar
+                  </button>
+                </div>
               </>
             ) : (
               <>

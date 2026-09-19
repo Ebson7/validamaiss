@@ -24,6 +24,7 @@ const CeoDashboard = React.lazy(() => import('./components/screens/CeoDashboard'
 const DadosCadastraisValida = React.lazy(() => import('./components/screens/DadosCadastrais').then(m => ({ default: m.DadosCadastraisValida })));
 const ConviteAmigos = React.lazy(() => import('./components/screens/ConviteAmigos').then(m => ({ default: m.ConviteAmigos })));
 const ClubeValida = React.lazy(() => import('./components/screens/ClubeValida').then(m => ({ default: m.ClubeValida })));
+const SacolaValida = React.lazy(() => import('./components/screens/Sacola').then(m => ({ default: m.SacolaValida })));
 import { CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -63,6 +64,8 @@ function AppContent() {
         return <ConviteAmigos />;
       case 'clube':
         return <ClubeValida />;
+      case 'sacola':
+        return <SacolaValida />;
       default:
         return <HomeValida />;
     }
