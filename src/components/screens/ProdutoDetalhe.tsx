@@ -10,6 +10,7 @@ import { isPagamentoConfigurado, iniciarPagamentoMP } from '../../lib/pagamento'
 import { buildShareUrl, nativeShare, hasNativeShare } from '../../lib/share';
 import { isClubeAtivo, precoClube, descontoReservaFrac } from '../../lib/clube';
 import { descontoDinamicoFrac, combinarDescontos } from '../../lib/precoDinamico';
+import { descontoReativacaoFrac } from '../../lib/reativacao';
 import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
@@ -18,9 +19,10 @@ export const ProdutoDetalheValida: React.FC = () => {
     navigateTo, 
     user, 
     showAlert, 
-    produtos, 
-    produtosLoading: loading, 
-    createReservation, 
+    produtos,
+    reservas,
+    produtosLoading: loading,
+    createReservation,
     avaliacoes, 
     isFavoritado, 
     toggleFavorito,
@@ -71,7 +73,8 @@ export const ProdutoDetalheValida: React.FC = () => {
   const membroClube = isClubeAtivo(user);
   // Preço efetivo = preço promocional com Clube + preço dinâmico (validade) combinados.
   const fracDinamico = descontoDinamicoFrac(produto.dataValidade);
-  const fracFinal = combinarDescontos(descontoReservaFrac(user), fracDinamico);
+  const fracReativacao = descontoReativacaoFrac(user, reservas);
+  const fracFinal = combinarDescontos(descontoReservaFrac(user), fracDinamico, fracReativacao);
   const promo = Math.round(produto.precoPromocional * (1 - fracFinal) * 100) / 100;
   const discountPercent = original > 0 ? Math.round(((original - promo) / original) * 100) : 0;
 
@@ -500,6 +503,13 @@ ${shareUrl}`
                   <div className="flex items-center gap-2 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
                     🔥 Desconto do dia por validade: <strong>-{Math.round(fracDinamico * 100)}%</strong>
                     {expiry.days === 0 ? ' — vence hoje!' : expiry.days === 1 ? ' — vence amanhã!' : ` — vence em ${expiry.days} dias`}
+                  </div>
+                )}
+
+                {/* Cupom de reativação ativo */}
+                {fracReativacao > 0 && !isEsgotado && !expiry.isExpired && (
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2">
+                    🎁 Cupom de boas-vindas de volta: <strong>-{Math.round(fracReativacao * 100)}%</strong> aplicado nesta reserva!
                   </div>
                 )}
 

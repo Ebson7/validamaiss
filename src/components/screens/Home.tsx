@@ -8,14 +8,25 @@ import { useApp } from '../../context/AppContext';
 import { ProdutoCard } from '../ProdutoCard';
 import { AdvertiserBanners } from '../AdvertiserBanners';
 import { isPagamentoConfigurado } from '../../lib/pagamento';
+import { cupomReativacaoAtivo, diasDesdeUltimaReserva, REATIVACAO_DESCONTO } from '../../lib/reativacao';
 import {
   Leaf, Sparkles, AlertCircle, ShoppingBag, ChevronRight, ArrowRight,
-  MapPin, Clock, Search, ShoppingCart, Store, Ticket
+  MapPin, Clock, Search, ShoppingCart, Store, Ticket, Gift, X
 } from 'lucide-react';
 
 export const HomeValida: React.FC = () => {
-  const { navigateTo, user, produtos, produtosLoading: loading, seedProducts } = useApp();
+  const { navigateTo, user, produtos, reservas, produtosLoading: loading, seedProducts } = useApp();
   const [seeding, setSeeding] = useState(false);
+  const [cupomFechado, setCupomFechado] = useState<boolean>(() => {
+    try { return sessionStorage.getItem('validamais_cupom_reativacao_fechado') === '1'; } catch { return false; }
+  });
+
+  const cupomAtivo = cupomReativacaoAtivo(user, reservas) && !cupomFechado;
+  const diasInativo = diasDesdeUltimaReserva(user, reservas);
+  const fecharCupom = () => {
+    setCupomFechado(true);
+    try { sessionStorage.setItem('validamais_cupom_reativacao_fechado', '1'); } catch { /* ignore */ }
+  };
 
   const highlights = [...produtos]
     .filter(p => p.status === 'disponivel')
@@ -50,6 +61,40 @@ export const HomeValida: React.FC = () => {
 
   return (
     <div id="home_screen" className="space-y-10">
+      {/* ─────────── Cupom de reativação (cliente inativo) ─────────── */}
+      {cupomAtivo && (
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-800 text-white shadow-lg shadow-indigo-900/20 animate-fade-in">
+          <div className="absolute -right-10 -top-10 w-52 h-52 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex items-center gap-4 p-5 sm:p-6">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+              <Gift className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm sm:text-base font-black leading-tight">
+                Que bom te ver de volta! 🎁 Cupom de {Math.round(REATIVACAO_DESCONTO * 100)}% liberado
+              </h3>
+              <p className="text-[11px] sm:text-xs text-indigo-100 font-semibold leading-snug mt-0.5">
+                {diasInativo ? `Faz ${diasInativo} dias desde sua última reserva. ` : ''}
+                Ganhe <strong>{Math.round(REATIVACAO_DESCONTO * 100)}% de desconto extra</strong> na sua próxima reserva — aplicado automaticamente no checkout.
+              </p>
+              <button
+                onClick={() => navigateTo('produtos')}
+                className="mt-2.5 inline-flex items-center gap-1.5 bg-white text-indigo-700 hover:bg-indigo-50 px-4 py-1.5 rounded-xl text-xs font-black cursor-pointer transition-all shadow-sm"
+              >
+                Aproveitar agora <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <button
+              onClick={fecharCupom}
+              className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0 self-start"
+              title="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* ─────────── Hero ─────────── */}
       <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white shadow-2xl shadow-emerald-900/15">
         <div className="absolute -right-16 -top-16 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
