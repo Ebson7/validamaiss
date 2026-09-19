@@ -181,6 +181,45 @@ export const AdminDashboardValida: React.FC = () => {
     taxaRetirada: (withdrawn + canceled) > 0 ? (withdrawn / (withdrawn + canceled)) * 100 : 0,
   };
 
+  // ── Aproveitamento de estoque (sell-through) + risco de descarte ──
+  // Mede quanto do que foi ofertado realmente saiu antes de vencer e alerta
+  // sobre lotes que vão para o lixo se não venderem nos próximos dias.
+  const RISCO_DIAS = 2; // janela crítica: lotes vencendo em até 2 dias
+  const hojeMid = new Date();
+  hojeMid.setHours(0, 0, 0, 0);
+  const diasParaVencer = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setHours(0, 0, 0, 0);
+    return Math.ceil((d.getTime() - hojeMid.getTime()) / 86400000);
+  };
+  let totalDisponivelAgora = 0; // unidades ainda em prateleira (não vendidas)
+  let unidadesEmRisco = 0;      // ainda disponíveis e vencendo na janela crítica
+  let perdaPotencial = 0;       // R$ (preço original) que pode virar descarte
+  let lotesEmRisco = 0;         // nº de lotes na janela crítica com estoque parado
+  myProducts.forEach((p) => {
+    const disp = Number(p.quantidadeDisponivel) || 0;
+    const reservada = Number(p.quantidadeReservada) || 0;
+    const restante = Math.max(0, disp - reservada);
+    totalDisponivelAgora += restante;
+    const dias = diasParaVencer(p.dataValidade);
+    if (dias >= 0 && dias <= RISCO_DIAS && restante > 0) {
+      unidadesEmRisco += restante;
+      perdaPotencial += restante * (Number(p.precoOriginal) || 0);
+      lotesEmRisco++;
+    }
+  });
+  // Aproveitamento = vendidas / (vendidas + ainda disponíveis). Robusto
+  // independentemente de como o estoque publicado é decrementado.
+  const baseAproveitamento = savedCount + totalDisponivelAgora;
+  const sellThrough = {
+    unidadesVendidas: savedCount,
+    unidadesDisponiveis: totalDisponivelAgora,
+    taxaAproveitamento: baseAproveitamento > 0 ? (savedCount / baseAproveitamento) * 100 : 0,
+    unidadesEmRisco,
+    lotesEmRisco,
+    perdaPotencial,
+  };
+
   // Reputação da loja: avaliações dos clientes referentes às lojas deste lojista
   const getRevTime = (v: any) => {
     try { return (v?.toDate ? v.toDate() : new Date(v)).getTime() || 0; } catch { return 0; }
@@ -618,11 +657,49 @@ export const AdminDashboardValida: React.FC = () => {
               </h3>
               <p className="text-[11px] text-gray-500 font-semibold mt-0.5">Ranking por receita recuperada</p>
             </div>
-            <div className="text-right shrink-0">
-              <div className="text-lg font-black text-emerald-600 leading-none">{metrics.taxaRetirada.toFixed(0)}%</div>
-              <div className="text-[9px] text-gray-400 font-bold font-mono uppercase tracking-wide mt-0.5">Taxa de retirada</div>
+            <div className="flex items-start gap-5 shrink-0">
+              <div className="text-right">
+                <div className={`text-lg font-black leading-none ${
+                  sellThrough.taxaAproveitamento >= 60 ? 'text-emerald-600'
+                    : sellThrough.taxaAproveitamento >= 30 ? 'text-amber-600' : 'text-rose-600'
+                }`}>{sellThrough.taxaAproveitamento.toFixed(0)}%</div>
+                <div className="text-[9px] text-gray-400 font-bold font-mono uppercase tracking-wide mt-0.5" title="Unidades vendidas ÷ (vendidas + ainda em prateleira)">
+                  Aproveitamento
+                </div>
+                <div className="text-[9px] text-gray-400 font-semibold font-mono mt-0.5">
+                  {sellThrough.unidadesVendidas} vend. · {sellThrough.unidadesDisponiveis} em estoque
+                </div>
+              </div>
+              <div className="text-right border-l border-gray-100 pl-5">
+                <div className="text-lg font-black text-emerald-600 leading-none">{metrics.taxaRetirada.toFixed(0)}%</div>
+                <div className="text-[9px] text-gray-400 font-bold font-mono uppercase tracking-wide mt-0.5">Taxa de retirada</div>
+              </div>
             </div>
           </div>
+
+          {/* Alerta de risco de descarte — lotes vencendo com estoque parado */}
+          {sellThrough.lotesEmRisco > 0 && (
+            <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50/70 p-3.5 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-4.5 h-4.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xs font-black text-rose-800 leading-tight">
+                  {sellThrough.lotesEmRisco} {sellThrough.lotesEmRisco === 1 ? 'lote em risco' : 'lotes em risco'} de descarte
+                </h4>
+                <p className="text-[11px] text-rose-700/90 font-semibold leading-snug mt-0.5">
+                  {sellThrough.unidadesEmRisco} {sellThrough.unidadesEmRisco === 1 ? 'unidade vence' : 'unidades vencem'} em até {RISCO_DIAS} dias e ainda não {sellThrough.unidadesEmRisco === 1 ? 'foi vendida' : 'foram vendidas'}.
+                  Perda potencial de <strong>{sellThrough.perdaPotencial.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong> — considere um desconto mais agressivo.
+                </p>
+                <button
+                  onClick={() => navigateTo('admin-produtos')}
+                  className="mt-2 text-[11px] font-black text-rose-700 hover:text-rose-800 font-mono uppercase tracking-wide cursor-pointer inline-flex items-center gap-1"
+                >
+                  Revisar lotes críticos <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {topLotes.length === 0 ? (
             <div className="py-8 text-center border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
