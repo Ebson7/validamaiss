@@ -1527,39 +1527,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showAlert('Sua sacola está vazia.', 'info');
       return 0;
     }
-    setLoading(true);
+    // Não usa o loading global (que apaga a tela inteira) — a tela da Sacola
+    // controla seu próprio estado de carregamento no botão.
     let sucesso = 0;
     const falhas: string[] = [];
-    try {
-      for (const item of carrinho) {
-        const prod = produtos.find(p => p.id === item.produtoId);
-        try {
-          const fracDinamico = prod ? descontoDinamicoFrac(prod.dataValidade) : 0;
-          const fracFinal = combinarDescontos(
-            descontoReservaFrac(user),
-            fracDinamico,
-            descontoReativacaoFrac(user, reservas)
-          );
-          await dbCreateReservation(user.uid, user.email, item.produtoId, item.quantidade, user.telefone, fracFinal);
-          sucesso++;
-        } catch (err: any) {
-          falhas.push(prod?.nomeProduto || item.produtoId);
-        }
+    for (const item of carrinho) {
+      const prod = produtos.find(p => p.id === item.produtoId);
+      try {
+        const fracDinamico = prod ? descontoDinamicoFrac(prod.dataValidade) : 0;
+        const fracFinal = combinarDescontos(
+          descontoReservaFrac(user),
+          fracDinamico,
+          descontoReativacaoFrac(user, reservas)
+        );
+        await dbCreateReservation(user.uid, user.email, item.produtoId, item.quantidade, user.telefone, fracFinal);
+        sucesso++;
+      } catch (err: any) {
+        falhas.push(prod?.nomeProduto || item.produtoId);
       }
-      persistCarrinho([]);
-      if (sucesso > 0 && falhas.length === 0) {
-        showAlert(`${sucesso} ${sucesso === 1 ? 'reserva efetuada' : 'reservas efetuadas'} com sucesso! Retire em loja.`, 'success');
-        navigateTo('minhas-reservas');
-      } else if (sucesso > 0) {
-        showAlert(`${sucesso} reservada(s), mas falhou em: ${falhas.join(', ')}.`, 'warning');
-        navigateTo('minhas-reservas');
-      } else {
-        showAlert('Não foi possível reservar os itens da sacola.', 'error');
-      }
-      return sucesso;
-    } finally {
-      setLoading(false);
     }
+    persistCarrinho([]);
+    if (sucesso > 0 && falhas.length === 0) {
+      showAlert(`${sucesso} ${sucesso === 1 ? 'reserva efetuada' : 'reservas efetuadas'} com sucesso! Retire em loja.`, 'success');
+      navigateTo('minhas-reservas');
+    } else if (sucesso > 0) {
+      showAlert(`${sucesso} reservada(s), mas falhou em: ${falhas.join(', ')}.`, 'warning');
+      navigateTo('minhas-reservas');
+    } else {
+      showAlert('Não foi possível reservar os itens da sacola.', 'error');
+    }
+    return sucesso;
   };
 
   const isFCMSupported = !!messaging;

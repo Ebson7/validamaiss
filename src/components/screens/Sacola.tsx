@@ -6,7 +6,7 @@
  * agrupando por estabelecimento (a retirada é por loja).
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { descontoReservaFrac } from '../../lib/clube';
 import { descontoDinamicoFrac, combinarDescontos } from '../../lib/precoDinamico';
@@ -18,8 +18,9 @@ export const SacolaValida: React.FC = () => {
   const {
     carrinho, produtos, user, reservas,
     setQuantidadeCarrinho, removerDoCarrinho, limparCarrinho, finalizarCarrinho,
-    navigateTo, loading,
+    navigateTo,
   } = useApp();
+  const [finalizando, setFinalizando] = useState(false);
 
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -171,12 +172,12 @@ export const SacolaValida: React.FC = () => {
           <span className="text-xl font-black text-emerald-600">{fmt(total)}</span>
         </div>
         <button
-          onClick={finalizarCarrinho}
-          disabled={loading}
+          onClick={async () => { setFinalizando(true); try { await finalizarCarrinho(); } finally { setFinalizando(false); } }}
+          disabled={finalizando}
           className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
         >
           <ShoppingCart className="w-4 h-4" />
-          {loading ? 'Processando...' : `Reservar tudo · ${fmt(total)}`}
+          {finalizando ? 'Processando reservas...' : `Reservar tudo · ${fmt(total)}`}
         </button>
         <p className="text-[10px] text-gray-400 text-center mt-2 font-medium leading-relaxed">
           Cada loja gera uma reserva com código de retirada próprio. Descontos de Clube, validade e cupons já aplicados.
