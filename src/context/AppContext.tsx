@@ -267,6 +267,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = onSnapshot(
       colRef,
       (snapshot) => {
+        // Offline: não apagar o catálogo em cache com um snapshot vazio que
+        // veio apenas do cache local (sem resposta do servidor).
+        if (snapshot.empty && snapshot.metadata.fromCache) {
+          setProdutosLoading(false);
+          return;
+        }
         const results: Produto[] = [];
         snapshot.forEach((docSnap) => {
           results.push({ id: docSnap.id, ...docSnap.data() } as Produto);
@@ -289,6 +295,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = onSnapshot(
       colRef,
       (snapshot) => {
+        // Offline: preservar as reservas em cache se o snapshot vazio veio
+        // apenas do cache local (sem resposta do servidor).
+        if (snapshot.empty && snapshot.metadata.fromCache) {
+          setReservasLoading(false);
+          return;
+        }
         const results: Reserva[] = [];
         snapshot.forEach((docSnap) => {
           results.push({ id: docSnap.id, ...docSnap.data() } as Reserva);
