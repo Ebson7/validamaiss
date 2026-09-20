@@ -8,6 +8,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { CookieConsent } from './components/CookieConsent';
 import { Onboarding } from './components/Onboarding';
+import { InstallPrompt } from './components/InstallPrompt';
 // Home fica eager (tela inicial / landing) para o primeiro paint ser imediato.
 import { HomeValida } from './components/screens/Home';
 // Demais telas são carregadas sob demanda (code-splitting) — cada uma vira um chunk.
@@ -182,6 +183,9 @@ function AppContent() {
 
       {/* Cookie consent banner */}
       <CookieConsent />
+
+      {/* Banner de instalação do app (apenas smartphones) */}
+      <InstallPrompt />
     </div>
   );
 }
