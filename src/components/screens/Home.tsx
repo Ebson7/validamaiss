@@ -28,10 +28,11 @@ export const HomeValida: React.FC = () => {
     try { sessionStorage.setItem('validamais_cupom_reativacao_fechado', '1'); } catch { /* ignore */ }
   };
 
-  const highlights = [...produtos]
+  const disponiveis = [...produtos]
     .filter(p => p.status === 'disponivel')
-    .sort((a, b) => new Date(a.dataValidade).getTime() - new Date(b.dataValidade).getTime())
-    .slice(0, 3);
+    .sort((a, b) => new Date(a.dataValidade).getTime() - new Date(b.dataValidade).getTime());
+  const highlights = disponiveis.slice(0, 4);
+  const rail = disponiveis.slice(4, 14);
 
   const dbEmpty = produtos.length === 0;
   const pagamentoOnline = isPagamentoConfigurado();
@@ -60,7 +61,7 @@ export const HomeValida: React.FC = () => {
       ];
 
   return (
-    <div id="home_screen" className="space-y-10">
+    <div id="home_screen" className="space-y-8">
       {/* ─────────── Cupom de reativação (cliente inativo) ─────────── */}
       {cupomAtivo && (
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-800 text-white shadow-lg shadow-indigo-900/20 animate-fade-in">
@@ -102,17 +103,17 @@ export const HomeValida: React.FC = () => {
         <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
              style={{ backgroundImage: 'radial-gradient(circle at 20% 30%, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
-        <div className="relative z-10 grid lg:grid-cols-[1.1fr_1fr] gap-8 items-center p-8 sm:p-12">
+        <div className="relative z-10 grid lg:grid-cols-[1.1fr_1fr] gap-6 items-center p-6 sm:p-9">
           {/* Left */}
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
               <Leaf className="w-3.5 h-3.5 text-lime-300" /> Combata o desperdício
             </div>
-            <h1 className="text-3xl sm:text-5xl font-black leading-[1.05] tracking-tight">
-              Salve alimentos,<br />
+            <h1 className="text-2xl sm:text-4xl font-black leading-[1.08] tracking-tight">
+              Salve alimentos,{' '}
               <span className="text-lime-300">pague muito menos.</span>
             </h1>
-            <p className="text-sm sm:text-base text-emerald-50/85 leading-relaxed max-w-md font-medium">
+            <p className="text-sm text-emerald-50/85 leading-relaxed max-w-md font-medium">
               {pagamentoOnline ? (
                 <>Reserve e pague online lotes com <strong className="text-white">até 70% de desconto</strong> antes do vencimento. Retire na loja com seu código.</>
               ) : (
@@ -209,6 +210,67 @@ export const HomeValida: React.FC = () => {
         </section>
       )}
 
+      {/* ─────────── Vitrine em destaque (marketplace) ─────────── */}
+      <section className="space-y-4">
+        <div className="flex justify-between items-end gap-3">
+          <div>
+            <h2 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight">Vence primeiro 🔥</h2>
+            <p className="text-xs text-gray-500 font-semibold mt-0.5">Lotes com validade mais curta — aproveite antes que esgotem.</p>
+          </div>
+          <button
+            onClick={() => navigateTo('produtos')}
+            className="text-xs font-black text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1"
+          >
+            Ver tudo <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-pulse">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="bg-gray-100 rounded-2xl h-72 border border-gray-100" />
+            ))}
+          </div>
+        ) : highlights.length > 0 ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {highlights.map((prod) => (
+              <ProdutoCard key={prod.id} produto={prod} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 border border-dashed border-gray-200 rounded-3xl bg-gray-50/50">
+            <AlertCircle className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <h4 className="text-sm font-black text-gray-800">Vitrine vazia no momento</h4>
+            <p className="text-xs text-gray-500 max-w-xs mx-auto mt-1">Ainda não há lotes promocionais cadastrados.</p>
+            <button onClick={() => navigateTo('produtos')} className="inline-flex items-center gap-1 text-xs font-black text-emerald-600 hover:text-emerald-700 cursor-pointer mt-3">
+              Explorar o catálogo <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* Carrossel horizontal — mais ofertas (estilo marketplace) */}
+      {!loading && rail.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex justify-between items-end gap-3">
+            <h2 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">Mais ofertas perto de você ⚡</h2>
+            <button
+              onClick={() => navigateTo('produtos')}
+              className="text-xs font-black text-emerald-600 hover:text-emerald-700 cursor-pointer shrink-0 inline-flex items-center gap-1"
+            >
+              Ver tudo <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory">
+            {rail.map((prod) => (
+              <div key={prod.id} className="snap-start shrink-0 w-[240px] sm:w-[270px]">
+                <ProdutoCard produto={prod} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Banners de patrocinadores */}
       <AdvertiserBanners />
 
@@ -226,45 +288,6 @@ export const HomeValida: React.FC = () => {
             </div>
           </div>
         ))}
-      </section>
-
-      {/* Destaques — urgência */}
-      <section className="space-y-5">
-        <div className="flex justify-between items-end gap-3">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Vence primeiro 🔥</h2>
-            <p className="text-xs text-gray-500 font-semibold mt-0.5">Lotes com validade mais curta — aproveite antes que esgotem.</p>
-          </div>
-          <button
-            onClick={() => navigateTo('produtos')}
-            className="text-xs font-black text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1"
-          >
-            Ver tudo <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-gray-100 rounded-2xl h-80 border border-gray-100" />
-            ))}
-          </div>
-        ) : highlights.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {highlights.map((prod) => (
-              <ProdutoCard key={prod.id} produto={prod} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12 border border-dashed border-gray-200 rounded-3xl bg-gray-50/50">
-            <AlertCircle className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <h4 className="text-sm font-black text-gray-800">Vitrine vazia no momento</h4>
-            <p className="text-xs text-gray-500 max-w-xs mx-auto mt-1">Ainda não há lotes promocionais cadastrados.</p>
-            <button onClick={() => navigateTo('produtos')} className="inline-flex items-center gap-1 text-xs font-black text-emerald-600 hover:text-emerald-700 cursor-pointer mt-3">
-              Explorar o catálogo <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
       </section>
 
       {/* Faixa final — CTA lojista/consumidor */}

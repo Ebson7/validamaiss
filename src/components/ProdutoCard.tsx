@@ -398,61 +398,62 @@ ${shareUrl}`;
         </div>
 
         {/* Pricing & Reservation Footer */}
-        <div className="mt-4 pt-3 border-t border-gray-100 flex items-end justify-between gap-2">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-gray-400 font-mono line-through font-medium">
-              {formatCurrency(pd.aplicado ? produto.precoPromocional : produto.precoOriginal)}
-            </span>
-            <span className="text-lg font-black text-emerald-600 leading-tight">
-              {formatCurrency(precoEfetivo)}
-            </span>
-            {pd.aplicado && !isEsgotado && !expiry.isExpired && (
-              <span className="mt-0.5 inline-flex items-center gap-1 self-start text-[9px] font-black text-rose-700 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-md font-mono uppercase tracking-wide">
-                🔥 -{pd.extraPct}% validade
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <div className="flex items-end justify-between gap-2">
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] text-gray-400 font-mono line-through font-medium">
+                {formatCurrency(pd.aplicado ? produto.precoPromocional : produto.precoOriginal)}
               </span>
-            )}
-          </div>
-
-          <div className="flex flex-col items-end text-right">
-            {!isEsgotado && !expiry.isExpired ? (
-              <>
-                <span
-                  className={`text-xs font-bold ${
-                    totalAvailable <= 5 ? 'text-rose-600' : 'text-gray-600'
-                  }`}
-                >
-                  {totalAvailable <= 5 && '⚡ '}
-                  {totalAvailable} unidades restantes
+              <span className="text-lg font-black text-emerald-600 leading-tight">
+                {formatCurrency(precoEfetivo)}
+              </span>
+              {pd.aplicado && !isEsgotado && !expiry.isExpired && (
+                <span className="mt-0.5 inline-flex items-center gap-1 self-start text-[9px] font-black text-rose-700 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-md font-mono uppercase tracking-wide">
+                  🔥 -{pd.extraPct}% validade
                 </span>
-                <div className="mt-2.5 flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); if (produto.id) adicionarAoCarrinho(produto.id); }}
-                    className="p-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all cursor-pointer flex items-center justify-center shadow-xs"
-                    title="Adicionar à sacola"
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    id={`btn_reserva_link_${produto.id}`}
-                    onClick={() => navigateTo('produto-detalhe', produto.id)}
-                    className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 font-mono hover:ps-5 transition-all duration-300 ps-4 pe-4 py-1.5 rounded-xl cursor-pointer shadow-xs hover:shadow-md flex items-center gap-1"
-                  >
-                    Reservar
-                  </button>
-                </div>
-              </>
+              )}
+            </div>
+
+            {!isEsgotado && !expiry.isExpired ? (
+              <span
+                className={`text-[11px] font-bold text-right shrink-0 ${
+                  totalAvailable <= 5 ? 'text-rose-600' : 'text-gray-500'
+                }`}
+              >
+                {totalAvailable <= 5 && '⚡ '}
+                {totalAvailable} un.
+              </span>
             ) : (
-              <>
+              <div className="flex flex-col items-end text-right shrink-0">
                 <span className="text-[10px] font-semibold font-mono text-gray-400 uppercase">
                   Código de Estoque
                 </span>
                 <span className="text-[10px] text-gray-400 font-mono mt-2">
                   {ExpiryDaysText(expiry.days, isEsgotado)}
                 </span>
-              </>
+              </div>
             )}
           </div>
+
+          {!isEsgotado && !expiry.isExpired && (
+            <div className="mt-3 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); if (produto.id) adicionarAoCarrinho(produto.id); }}
+                className="p-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all cursor-pointer flex items-center justify-center shadow-xs shrink-0"
+                title="Adicionar à sacola"
+              >
+                <ShoppingBag className="w-4 h-4" />
+              </button>
+              <button
+                id={`btn_reserva_link_${produto.id}`}
+                onClick={() => navigateTo('produto-detalhe', produto.id)}
+                className="flex-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 font-mono transition-all duration-300 py-2 rounded-xl cursor-pointer shadow-xs hover:shadow-md flex items-center justify-center gap-1"
+              >
+                Reservar
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
