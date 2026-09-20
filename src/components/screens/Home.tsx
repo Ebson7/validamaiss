@@ -61,10 +61,10 @@ export const HomeValida: React.FC = () => {
       ];
 
   return (
-    <div id="home_screen" className="space-y-8">
+    <div id="home_screen" className="flex flex-col gap-8">
       {/* ─────────── Cupom de reativação (cliente inativo) ─────────── */}
       {cupomAtivo && (
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-800 text-white shadow-lg shadow-indigo-900/20 animate-fade-in">
+        <section className="order-1 relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-800 text-white shadow-lg shadow-indigo-900/20 animate-fade-in">
           <div className="absolute -right-10 -top-10 w-52 h-52 bg-white/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 flex items-center gap-4 p-5 sm:p-6">
             <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
@@ -97,7 +97,7 @@ export const HomeValida: React.FC = () => {
       )}
 
       {/* ─────────── Hero ─────────── */}
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white shadow-2xl shadow-emerald-900/15">
+      <section className="order-5 relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white shadow-2xl shadow-emerald-900/15">
         <div className="absolute -right-16 -top-16 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -left-10 -bottom-16 w-72 h-72 bg-lime-300/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
@@ -189,7 +189,7 @@ export const HomeValida: React.FC = () => {
 
       {/* Seed box (catálogo vazio) */}
       {dbEmpty && (
-        <section id="empty_db_seed_section" className="bg-amber-50/50 border border-amber-200 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <section id="empty_db_seed_section" className="order-2 bg-amber-50/50 border border-amber-200 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-1">
             <h3 className="text-base font-black text-amber-900 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
@@ -211,7 +211,7 @@ export const HomeValida: React.FC = () => {
       )}
 
       {/* ─────────── Vitrine em destaque (marketplace) ─────────── */}
-      <section className="space-y-4">
+      <section className="order-3 space-y-4">
         <div className="flex justify-between items-end gap-3">
           <div>
             <h2 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight">Vence primeiro 🔥</h2>
@@ -251,7 +251,7 @@ export const HomeValida: React.FC = () => {
 
       {/* Carrossel horizontal — mais ofertas (estilo marketplace) */}
       {!loading && rail.length > 0 && (
-        <section className="space-y-3">
+        <section className="order-4 space-y-3">
           <div className="flex justify-between items-end gap-3">
             <h2 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">Mais ofertas perto de você ⚡</h2>
             <button
@@ -272,10 +272,12 @@ export const HomeValida: React.FC = () => {
       )}
 
       {/* Banners de patrocinadores */}
-      <AdvertiserBanners />
+      <div className="order-6">
+        <AdvertiserBanners />
+      </div>
 
       {/* Como funciona */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="order-7 grid grid-cols-1 md:grid-cols-3 gap-4">
         {steps.map((s, i) => (
           <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5 flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">{s.icon}</div>
@@ -291,7 +293,7 @@ export const HomeValida: React.FC = () => {
       </section>
 
       {/* Faixa final — CTA lojista/consumidor */}
-      <section className="rounded-3xl bg-emerald-50/60 border border-emerald-100 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+      <section className="order-8 rounded-3xl bg-emerald-50/60 border border-emerald-100 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
             <Store className="w-5 h-5" />

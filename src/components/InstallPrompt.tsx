@@ -48,7 +48,8 @@ export const InstallPrompt: React.FC = () => {
     try { dismissed = localStorage.getItem(DISMISS_KEY) === '1'; } catch { /* ignore */ }
     if (dismissed || !isSmartphone() || isStandalone()) return;
 
-    // Android/Chrome: guarda o evento para disparar o prompt nativo depois.
+    // Android/Chrome: guarda o evento para disparar o prompt nativo (quando
+    // o navegador o emitir — nem sempre acontece de imediato).
     const onBIP = (e: Event) => {
       e.preventDefault();
       setDeferred(e);
@@ -56,8 +57,10 @@ export const InstallPrompt: React.FC = () => {
     };
     window.addEventListener('beforeinstallprompt', onBIP);
 
-    // iOS (sem beforeinstallprompt): mostra o banner com instruções manuais.
-    if (isIOS()) setVisible(true);
+    // Mostra o banner em QUALQUER smartphone após um instante, sem depender do
+    // beforeinstallprompt (que no Android muitas vezes não dispara). O botão
+    // "Instalar" usa o prompt nativo se disponível, ou mostra as instruções.
+    const t = setTimeout(() => setVisible(true), 1200);
 
     // Some quando o app é instalado.
     const onInstalled = () => setVisible(false);
@@ -66,6 +69,7 @@ export const InstallPrompt: React.FC = () => {
     return () => {
       window.removeEventListener('beforeinstallprompt', onBIP);
       window.removeEventListener('appinstalled', onInstalled);
+      clearTimeout(t);
     };
   }, []);
 
@@ -82,7 +86,9 @@ export const InstallPrompt: React.FC = () => {
         if (choice?.outcome === 'accepted') setVisible(false);
       } catch { /* ignore */ }
       setDeferred(null);
-    } else if (isIOS()) {
+    } else {
+      // Sem prompt nativo (iOS, ou Android que ainda não emitiu o evento):
+      // mostra as instruções manuais de instalação.
       setShowIosHelp((v) => !v);
     }
   };
@@ -117,8 +123,18 @@ export const InstallPrompt: React.FC = () => {
 
         {showIosHelp && (
           <div className="border-t border-gray-100 bg-emerald-50/60 px-4 py-3 text-[11px] text-gray-700 font-semibold leading-relaxed">
-            No iPhone: toque em <Share className="inline w-3.5 h-3.5 text-emerald-600 align-text-bottom" /> <strong>Compartilhar</strong> e depois em{' '}
-            <span className="inline-flex items-center gap-0.5"><Plus className="w-3.5 h-3.5 text-emerald-600" /><strong>Adicionar à Tela de Início</strong></span>.
+            {isIOS() ? (
+              <>
+                No iPhone: toque em <Share className="inline w-3.5 h-3.5 text-emerald-600 align-text-bottom" /> <strong>Compartilhar</strong> e depois em{' '}
+                <span className="inline-flex items-center gap-0.5"><Plus className="w-3.5 h-3.5 text-emerald-600" /><strong>Adicionar à Tela de Início</strong></span>.
+              </>
+            ) : (
+              <>
+                No Android: abra o menu <strong>⋮</strong> do navegador e toque em{' '}
+                <span className="inline-flex items-center gap-0.5"><Plus className="w-3.5 h-3.5 text-emerald-600" /><strong>Instalar app</strong></span>{' '}
+                (ou <strong>Adicionar à tela inicial</strong>).
+              </>
+            )}
           </div>
         )}
       </div>
