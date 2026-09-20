@@ -6,15 +6,16 @@
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
 
-// Standard credentials fallback for worker context
-// Note: In strict production situations, this config should match your firebase-applet-config.json
+// Config pública do cliente Firebase (mesmos valores de firebase-applet-config.json).
+// Estes valores são públicos por natureza (embarcados no app web); a segurança
+// vem das regras do Firestore/FCM, não do sigilo destas chaves.
 firebase.initializeApp({
-  apiKey: "placeholder",
-  authDomain: "placeholder",
-  projectId: "placeholder",
-  storageBucket: "placeholder",
-  messagingSenderId: "placeholder",
-  appId: "placeholder"
+  apiKey: "AIzaSyAA1FS4UBJThxREXox6-zZNmVrSnz4Vn50",
+  authDomain: "gen-lang-client-0971671639.firebaseapp.com",
+  projectId: "gen-lang-client-0971671639",
+  storageBucket: "gen-lang-client-0971671639.firebasestorage.app",
+  messagingSenderId: "128041021133",
+  appId: "1:128041021133:web:661b8bdc4c7a5c4c424384"
 });
 
 // Retrieve an instance of Firebase Cloud Messaging.
@@ -27,8 +28,8 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification?.title || payload.data?.title || 'Desconto Imperdível no ValidaMais!';
   const notificationOptions = {
     body: payload.notification?.body || payload.data?.body || 'Um mercado próximo adicionou produtos com validade curta e descontos incríveis. Confira!',
-    icon: '/logo.png', // Fallback standard icons
-    badge: '/logo.png',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
     data: {
       url: payload.data?.url || '/'
     }

@@ -1282,8 +1282,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // If FCM is loaded and operational, attempt to register real Device Token from user's Firebase console settings!
       if (messaging) {
-        // Fallback default VAPID or custom user VAPID key
-        const vapid = customVapidKey || "BEnSg1r-S-F472PuyunT6ZJ5G-TID-rP9v9mI-j9Z584-placeholder";
+        // VAPID key: override manual > variável de ambiente (VITE_FIREBASE_VAPID_KEY).
+        // Pegue a chave em: Firebase Console > Configurações do projeto > Cloud
+        // Messaging > Certificados push da Web (Web Push certificates).
+        const envVapid = (import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined) || '';
+        const vapid = customVapidKey || envVapid;
+        if (!vapid) {
+          showAlert('Push ainda não configurado: defina a chave VAPID (VITE_FIREBASE_VAPID_KEY) do seu projeto Firebase.', 'warning');
+          return null;
+        }
         try {
           const token = await getToken(messaging, { vapidKey: vapid });
           if (token) {
