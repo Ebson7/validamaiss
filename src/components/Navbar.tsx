@@ -468,7 +468,7 @@ export const Navbar: React.FC = () => {
       {/* ── Mobile Bottom Navigation Bar ── */}
       <nav
         id="mobile_bottom_nav"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] pb-2"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
       >
         <div className="flex justify-around items-stretch px-1 pt-1">
 

@@ -165,8 +165,9 @@ export const SacolaValida: React.FC = () => {
         );
       })}
 
-      {/* Resumo e finalização */}
-      <div className="glass rounded-3xl border-white/50 p-5 shadow-xs sticky bottom-4">
+      {/* Resumo e finalização (sticky só no desktop; no mobile fica em fluxo
+          normal para não sobrepor o último item em listas curtas) */}
+      <div className="bg-white/95 backdrop-blur-sm rounded-3xl border border-white/50 p-5 shadow-md md:sticky md:bottom-4">
         <div className="flex justify-between items-center mb-3">
           <span className="text-sm font-bold text-gray-600">Total ({totalItens} {totalItens === 1 ? 'item' : 'itens'})</span>
           <span className="text-xl font-black text-emerald-600">{fmt(total)}</span>
