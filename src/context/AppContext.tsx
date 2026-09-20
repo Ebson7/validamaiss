@@ -20,6 +20,8 @@ import { auth, db, handleFirestoreError, OperationType, messaging } from '../lib
 import { createOrUpdateUserDocument, getUserProfile, loginSimulatedUser } from '../lib/auth';
 import { lerRetornoPagamento, limparRetornoPagamento } from '../lib/pagamento';
 import { descontoReservaFrac } from '../lib/clube';
+import { descontoDinamicoFrac, combinarDescontos } from '../lib/precoDinamico';
+import { descontoReativacaoFrac } from '../lib/reativacao';
 import { Usuario, UserRole, Produto, Reserva, Categoria, AvaliacaoLoja, NotificacaoPreferencias, NotificacaoFeedItem, Favorito, FavoritoLoja } from '../types';
 import { 
   getProducts, 
@@ -50,11 +52,17 @@ export type ScreenType =
   | 'dados-cadastrais'
   | 'convite'
   | 'clube'
+  | 'sacola'
   | 'ceo-dashboard';
 
 interface Alert {
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
+}
+
+export interface CarrinhoItem {
+  produtoId: string;
+  quantidade: number;
 }
 
 interface AppContextType {
@@ -105,6 +113,13 @@ interface AppContextType {
   isLojaFavoritada: (nomeLoja: string) => boolean;
   toggleFavoritoLoja: (nomeLoja: string) => Promise<void>;
   updateUserProfile: (dados: Partial<Usuario>) => Promise<void>;
+  carrinho: CarrinhoItem[];
+  carrinhoCount: number;
+  adicionarAoCarrinho: (produtoId: string, quantidade?: number) => void;
+  removerDoCarrinho: (produtoId: string) => void;
+  setQuantidadeCarrinho: (produtoId: string, quantidade: number) => void;
+  limparCarrinho: () => void;
+  finalizarCarrinho: () => Promise<number>;
 }
 
 const DEFAULT_USERS: Usuario[] = [
@@ -215,6 +230,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
   const [favoritosLojasLoading, setFavoritosLojasLoading] = useState(true);
+  const [carrinho, setCarrinho] = useState<CarrinhoItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('validamais_carrinho');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [notificationsPermission, setNotificationsPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -246,6 +267,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = onSnapshot(
       colRef,
       (snapshot) => {
+        // Offline: não apagar o catálogo em cache com um snapshot vazio que
+        // veio apenas do cache local (sem resposta do servidor).
+        if (snapshot.empty && snapshot.metadata.fromCache) {
+          setProdutosLoading(false);
+          return;
+        }
         const results: Produto[] = [];
         snapshot.forEach((docSnap) => {
           results.push({ id: docSnap.id, ...docSnap.data() } as Produto);
@@ -268,6 +295,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = onSnapshot(
       colRef,
       (snapshot) => {
+        // Offline: preservar as reservas em cache se o snapshot vazio veio
+        // apenas do cache local (sem resposta do servidor).
+        if (snapshot.empty && snapshot.metadata.fromCache) {
+          setReservasLoading(false);
+          return;
+        }
         const results: Reserva[] = [];
         snapshot.forEach((docSnap) => {
           results.push({ id: docSnap.id, ...docSnap.data() } as Reserva);
@@ -1043,7 +1076,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!user) {
         throw new Error('Identificação necessária: faça login para reservar.');
       }
-      const res = await dbCreateReservation(user.uid, user.email, produtoId, quantidade, user.telefone, descontoReservaFrac(user));
+      // Desconto final = Clube + preço dinâmico (validade) + cupom de reativação.
+      const prod = produtos.find(p => p.id === produtoId);
+      const fracDinamico = prod ? descontoDinamicoFrac(prod.dataValidade) : 0;
+      const fracFinal = combinarDescontos(
+        descontoReservaFrac(user),
+        fracDinamico,
+        descontoReativacaoFrac(user, reservas)
+      );
+      const res = await dbCreateReservation(user.uid, user.email, produtoId, quantidade, user.telefone, fracFinal);
       showAlert('Reserva efetuada com sucesso! Retire em loja física.', 'success');
       return res;
     } catch (err: any) {
@@ -1241,8 +1282,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // If FCM is loaded and operational, attempt to register real Device Token from user's Firebase console settings!
       if (messaging) {
-        // Fallback default VAPID or custom user VAPID key
-        const vapid = customVapidKey || "BEnSg1r-S-F472PuyunT6ZJ5G-TID-rP9v9mI-j9Z584-placeholder";
+        // VAPID key: override manual > variável de ambiente (VITE_FIREBASE_VAPID_KEY).
+        // Pegue a chave em: Firebase Console > Configurações do projeto > Cloud
+        // Messaging > Certificados push da Web (Web Push certificates).
+        const envVapid = (import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined) || '';
+        const vapid = customVapidKey || envVapid;
+        if (!vapid) {
+          showAlert('Push ainda não configurado: defina a chave VAPID (VITE_FIREBASE_VAPID_KEY) do seu projeto Firebase.', 'warning');
+          return null;
+        }
         try {
           const token = await getToken(messaging, { vapidKey: vapid });
           if (token) {
@@ -1436,6 +1484,88 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // ── Carrinho / Sacola (reserva multi-loja) ──
+  const persistCarrinho = (items: CarrinhoItem[]) => {
+    setCarrinho(items);
+    try { localStorage.setItem('validamais_carrinho', JSON.stringify(items)); } catch { /* ignore */ }
+  };
+
+  const carrinhoCount = carrinho.reduce((sum, it) => sum + it.quantidade, 0);
+
+  const adicionarAoCarrinho = (produtoId: string, quantidade: number = 1) => {
+    if (!produtoId) return;
+    const prod = produtos.find(p => p.id === produtoId);
+    if (!prod) { showAlert('Produto não encontrado.', 'error'); return; }
+    const disponivel = prod.quantidadeDisponivel - prod.quantidadeReservada;
+    const atual = carrinho.find(it => it.produtoId === produtoId)?.quantidade || 0;
+    const desejado = Math.min(atual + quantidade, Math.max(1, disponivel));
+    if (disponivel <= 0) { showAlert('Este lote está esgotado.', 'warning'); return; }
+    const existe = carrinho.some(it => it.produtoId === produtoId);
+    const next = existe
+      ? carrinho.map(it => it.produtoId === produtoId ? { ...it, quantidade: desejado } : it)
+      : [...carrinho, { produtoId, quantidade: desejado }];
+    persistCarrinho(next);
+    showAlert('Item adicionado à sacola! 🛍️', 'success');
+  };
+
+  const removerDoCarrinho = (produtoId: string) => {
+    persistCarrinho(carrinho.filter(it => it.produtoId !== produtoId));
+  };
+
+  const setQuantidadeCarrinho = (produtoId: string, quantidade: number) => {
+    if (quantidade <= 0) { removerDoCarrinho(produtoId); return; }
+    const prod = produtos.find(p => p.id === produtoId);
+    const disponivel = prod ? (prod.quantidadeDisponivel - prod.quantidadeReservada) : quantidade;
+    const q = Math.min(quantidade, Math.max(1, disponivel));
+    persistCarrinho(carrinho.map(it => it.produtoId === produtoId ? { ...it, quantidade: q } : it));
+  };
+
+  const limparCarrinho = () => persistCarrinho([]);
+
+  // Finaliza a sacola criando uma reserva por item (agrupadas por loja na tela).
+  // Reaproveita a mesma composição de desconto da reserva unitária.
+  const finalizarCarrinho = async (): Promise<number> => {
+    if (!user) {
+      showAlert('Faça login para finalizar sua sacola.', 'warning');
+      navigateTo('login');
+      return 0;
+    }
+    if (carrinho.length === 0) {
+      showAlert('Sua sacola está vazia.', 'info');
+      return 0;
+    }
+    // Não usa o loading global (que apaga a tela inteira) — a tela da Sacola
+    // controla seu próprio estado de carregamento no botão.
+    let sucesso = 0;
+    const falhas: string[] = [];
+    for (const item of carrinho) {
+      const prod = produtos.find(p => p.id === item.produtoId);
+      try {
+        const fracDinamico = prod ? descontoDinamicoFrac(prod.dataValidade) : 0;
+        const fracFinal = combinarDescontos(
+          descontoReservaFrac(user),
+          fracDinamico,
+          descontoReativacaoFrac(user, reservas)
+        );
+        await dbCreateReservation(user.uid, user.email, item.produtoId, item.quantidade, user.telefone, fracFinal);
+        sucesso++;
+      } catch (err: any) {
+        falhas.push(prod?.nomeProduto || item.produtoId);
+      }
+    }
+    persistCarrinho([]);
+    if (sucesso > 0 && falhas.length === 0) {
+      showAlert(`${sucesso} ${sucesso === 1 ? 'reserva efetuada' : 'reservas efetuadas'} com sucesso! Retire em loja.`, 'success');
+      navigateTo('minhas-reservas');
+    } else if (sucesso > 0) {
+      showAlert(`${sucesso} reservada(s), mas falhou em: ${falhas.join(', ')}.`, 'warning');
+      navigateTo('minhas-reservas');
+    } else {
+      showAlert('Não foi possível reservar os itens da sacola.', 'error');
+    }
+    return sucesso;
+  };
+
   const isFCMSupported = !!messaging;
 
   return (
@@ -1487,7 +1617,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         favoritosLojasLoading,
         isLojaFavoritada,
         toggleFavoritoLoja,
-        updateUserProfile
+        updateUserProfile,
+        carrinho,
+        carrinhoCount,
+        adicionarAoCarrinho,
+        removerDoCarrinho,
+        setQuantidadeCarrinho,
+        limparCarrinho,
+        finalizarCarrinho
       }}
     >
       {children}

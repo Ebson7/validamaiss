@@ -8,19 +8,31 @@ import { useApp } from '../../context/AppContext';
 import { ProdutoCard } from '../ProdutoCard';
 import { AdvertiserBanners } from '../AdvertiserBanners';
 import { isPagamentoConfigurado } from '../../lib/pagamento';
+import { cupomReativacaoAtivo, diasDesdeUltimaReserva, REATIVACAO_DESCONTO } from '../../lib/reativacao';
 import {
   Leaf, Sparkles, AlertCircle, ShoppingBag, ChevronRight, ArrowRight,
-  MapPin, Clock, Search, ShoppingCart, Store, Ticket
+  MapPin, Clock, Search, ShoppingCart, Store, Ticket, Gift, X
 } from 'lucide-react';
 
 export const HomeValida: React.FC = () => {
-  const { navigateTo, user, produtos, produtosLoading: loading, seedProducts } = useApp();
+  const { navigateTo, user, produtos, reservas, produtosLoading: loading, seedProducts } = useApp();
   const [seeding, setSeeding] = useState(false);
+  const [cupomFechado, setCupomFechado] = useState<boolean>(() => {
+    try { return sessionStorage.getItem('validamais_cupom_reativacao_fechado') === '1'; } catch { return false; }
+  });
 
-  const highlights = [...produtos]
+  const cupomAtivo = cupomReativacaoAtivo(user, reservas) && !cupomFechado;
+  const diasInativo = diasDesdeUltimaReserva(user, reservas);
+  const fecharCupom = () => {
+    setCupomFechado(true);
+    try { sessionStorage.setItem('validamais_cupom_reativacao_fechado', '1'); } catch { /* ignore */ }
+  };
+
+  const disponiveis = [...produtos]
     .filter(p => p.status === 'disponivel')
-    .sort((a, b) => new Date(a.dataValidade).getTime() - new Date(b.dataValidade).getTime())
-    .slice(0, 3);
+    .sort((a, b) => new Date(a.dataValidade).getTime() - new Date(b.dataValidade).getTime());
+  const highlights = disponiveis.slice(0, 4);
+  const rail = disponiveis.slice(4, 14);
 
   const dbEmpty = produtos.length === 0;
   const pagamentoOnline = isPagamentoConfigurado();
@@ -49,25 +61,59 @@ export const HomeValida: React.FC = () => {
       ];
 
   return (
-    <div id="home_screen" className="space-y-10">
+    <div id="home_screen" className="flex flex-col gap-8">
+      {/* ─────────── Cupom de reativação (cliente inativo) ─────────── */}
+      {cupomAtivo && (
+        <section className="order-1 relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-800 text-white shadow-lg shadow-indigo-900/20 animate-fade-in">
+          <div className="absolute -right-10 -top-10 w-52 h-52 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex items-center gap-4 p-5 sm:p-6">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+              <Gift className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm sm:text-base font-black leading-tight">
+                Que bom te ver de volta! 🎁 Cupom de {Math.round(REATIVACAO_DESCONTO * 100)}% liberado
+              </h3>
+              <p className="text-[11px] sm:text-xs text-indigo-100 font-semibold leading-snug mt-0.5">
+                {diasInativo ? `Faz ${diasInativo} dias desde sua última reserva. ` : ''}
+                Ganhe <strong>{Math.round(REATIVACAO_DESCONTO * 100)}% de desconto extra</strong> na sua próxima reserva — aplicado automaticamente no checkout.
+              </p>
+              <button
+                onClick={() => navigateTo('produtos')}
+                className="mt-2.5 inline-flex items-center gap-1.5 bg-white text-indigo-700 hover:bg-indigo-50 px-4 py-1.5 rounded-xl text-xs font-black cursor-pointer transition-all shadow-sm"
+              >
+                Aproveitar agora <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <button
+              onClick={fecharCupom}
+              className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0 self-start"
+              title="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* ─────────── Hero ─────────── */}
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white shadow-2xl shadow-emerald-900/15">
+      <section className="order-5 relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white shadow-2xl shadow-emerald-900/15">
         <div className="absolute -right-16 -top-16 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -left-10 -bottom-16 w-72 h-72 bg-lime-300/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
              style={{ backgroundImage: 'radial-gradient(circle at 20% 30%, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
-        <div className="relative z-10 grid lg:grid-cols-[1.1fr_1fr] gap-8 items-center p-8 sm:p-12">
+        <div className="relative z-10 grid lg:grid-cols-[1.1fr_1fr] gap-6 items-center p-6 sm:p-9">
           {/* Left */}
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-white/20">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20">
               <Leaf className="w-3.5 h-3.5 text-lime-300" /> Combata o desperdício
             </div>
-            <h1 className="text-3xl sm:text-5xl font-black leading-[1.05] tracking-tight">
-              Salve alimentos,<br />
+            <h1 className="text-2xl sm:text-4xl font-black leading-[1.08] tracking-tight">
+              Salve alimentos,{' '}
               <span className="text-lime-300">pague muito menos.</span>
             </h1>
-            <p className="text-sm sm:text-base text-emerald-50/85 leading-relaxed max-w-md font-medium">
+            <p className="text-sm text-emerald-50/85 leading-relaxed max-w-md font-medium">
               {pagamentoOnline ? (
                 <>Reserve e pague online lotes com <strong className="text-white">até 70% de desconto</strong> antes do vencimento. Retire na loja com seu código.</>
               ) : (
@@ -143,7 +189,7 @@ export const HomeValida: React.FC = () => {
 
       {/* Seed box (catálogo vazio) */}
       {dbEmpty && (
-        <section id="empty_db_seed_section" className="bg-amber-50/50 border border-amber-200 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <section id="empty_db_seed_section" className="order-2 bg-amber-50/50 border border-amber-200 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-1">
             <h3 className="text-base font-black text-amber-900 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
@@ -164,30 +210,11 @@ export const HomeValida: React.FC = () => {
         </section>
       )}
 
-      {/* Banners de patrocinadores */}
-      <AdvertiserBanners />
-
-      {/* Como funciona */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {steps.map((s, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5 flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">{s.icon}</div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-black text-emerald-500 font-mono">{i + 1}</span>
-                <h3 className="text-sm font-black text-gray-900">{s.title}</h3>
-              </div>
-              <p className="text-xs text-gray-500 font-medium leading-relaxed mt-0.5">{s.desc}</p>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      {/* Destaques — urgência */}
-      <section className="space-y-5">
+      {/* ─────────── Vitrine em destaque (marketplace) ─────────── */}
+      <section className="order-3 space-y-4">
         <div className="flex justify-between items-end gap-3">
           <div>
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Vence primeiro 🔥</h2>
+            <h2 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight">Vence primeiro 🔥</h2>
             <p className="text-xs text-gray-500 font-semibold mt-0.5">Lotes com validade mais curta — aproveite antes que esgotem.</p>
           </div>
           <button
@@ -199,13 +226,13 @@ export const HomeValida: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-gray-100 rounded-2xl h-80 border border-gray-100" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-pulse">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="bg-gray-100 rounded-2xl h-72 border border-gray-100" />
             ))}
           </div>
         ) : highlights.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {highlights.map((prod) => (
               <ProdutoCard key={prod.id} produto={prod} />
             ))}
@@ -222,8 +249,51 @@ export const HomeValida: React.FC = () => {
         )}
       </section>
 
+      {/* Carrossel horizontal — mais ofertas (estilo marketplace) */}
+      {!loading && rail.length > 0 && (
+        <section className="order-4 space-y-3">
+          <div className="flex justify-between items-end gap-3">
+            <h2 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">Mais ofertas perto de você ⚡</h2>
+            <button
+              onClick={() => navigateTo('produtos')}
+              className="text-xs font-black text-emerald-600 hover:text-emerald-700 cursor-pointer shrink-0 inline-flex items-center gap-1"
+            >
+              Ver tudo <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory">
+            {rail.map((prod) => (
+              <div key={prod.id} className="snap-start shrink-0 w-[240px] sm:w-[270px]">
+                <ProdutoCard produto={prod} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Banners de patrocinadores */}
+      <div className="order-6">
+        <AdvertiserBanners />
+      </div>
+
+      {/* Como funciona */}
+      <section className="order-7 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {steps.map((s, i) => (
+          <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5 flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">{s.icon}</div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-black text-emerald-500 font-mono">{i + 1}</span>
+                <h3 className="text-sm font-black text-gray-900">{s.title}</h3>
+              </div>
+              <p className="text-xs text-gray-500 font-medium leading-relaxed mt-0.5">{s.desc}</p>
+            </div>
+          </div>
+        ))}
+      </section>
+
       {/* Faixa final — CTA lojista/consumidor */}
-      <section className="rounded-3xl bg-emerald-50/60 border border-emerald-100 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+      <section className="order-8 rounded-3xl bg-emerald-50/60 border border-emerald-100 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
             <Store className="w-5 h-5" />

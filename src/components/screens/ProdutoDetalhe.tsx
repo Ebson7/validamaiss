@@ -8,8 +8,10 @@ import { useApp } from '../../context/AppContext';
 import { Reserva } from '../../types';
 import { isPagamentoConfigurado, iniciarPagamentoMP } from '../../lib/pagamento';
 import { buildShareUrl, nativeShare, hasNativeShare } from '../../lib/share';
-import { isClubeAtivo, precoClube } from '../../lib/clube';
-import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X } from 'lucide-react';
+import { isClubeAtivo, precoClube, descontoReservaFrac } from '../../lib/clube';
+import { descontoDinamicoFrac, combinarDescontos } from '../../lib/precoDinamico';
+import { descontoReativacaoFrac } from '../../lib/reativacao';
+import { Store, Calendar, MapPin, DollarSign, Plus, Minus, CreditCard, ShieldCheck, ShoppingCart, Loader2, Info, Star, Copy, Check, Share2, Heart, Ticket, PartyPopper, ArrowRight, X, ShoppingBag } from 'lucide-react';
 
 export const ProdutoDetalheValida: React.FC = () => {
   const { 
@@ -17,14 +19,16 @@ export const ProdutoDetalheValida: React.FC = () => {
     navigateTo, 
     user, 
     showAlert, 
-    produtos, 
-    produtosLoading: loading, 
-    createReservation, 
+    produtos,
+    reservas,
+    produtosLoading: loading,
+    createReservation,
     avaliacoes, 
     isFavoritado, 
     toggleFavorito,
     isLojaFavoritada,
-    toggleFavoritoLoja
+    toggleFavoritoLoja,
+    adicionarAoCarrinho
   } = useApp();
   const [quantidade, setQuantidade] = useState(1);
   const [reserving, setReserving] = useState(false);
@@ -68,7 +72,11 @@ export const ProdutoDetalheValida: React.FC = () => {
 
   const original = produto.precoOriginal;
   const membroClube = isClubeAtivo(user);
-  const promo = membroClube ? precoClube(produto.precoPromocional) : produto.precoPromocional;
+  // Preço efetivo = preço promocional com Clube + preço dinâmico (validade) combinados.
+  const fracDinamico = descontoDinamicoFrac(produto.dataValidade);
+  const fracReativacao = descontoReativacaoFrac(user, reservas);
+  const fracFinal = combinarDescontos(descontoReservaFrac(user), fracDinamico, fracReativacao);
+  const promo = Math.round(produto.precoPromocional * (1 - fracFinal) * 100) / 100;
   const discountPercent = original > 0 ? Math.round(((original - promo) / original) * 100) : 0;
 
   // Calculo de Validade
@@ -491,6 +499,21 @@ ${shareUrl}`
                   </div>
                 </div>
 
+                {/* Aviso de preço dinâmico por validade */}
+                {fracDinamico > 0 && !isEsgotado && !expiry.isExpired && (
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                    🔥 Desconto do dia por validade: <strong>-{Math.round(fracDinamico * 100)}%</strong>
+                    {expiry.days === 0 ? ' — vence hoje!' : expiry.days === 1 ? ' — vence amanhã!' : ` — vence em ${expiry.days} dias`}
+                  </div>
+                )}
+
+                {/* Cupom de reativação ativo */}
+                {fracReativacao > 0 && !isEsgotado && !expiry.isExpired && (
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2">
+                    🎁 Cupom de boas-vindas de volta: <strong>-{Math.round(fracReativacao * 100)}%</strong> aplicado nesta reserva!
+                  </div>
+                )}
+
                 {/* Subtotal calculator */}
                 <div className="flex justify-between items-center text-sm font-mono font-semibold px-2">
                   <span className="text-gray-500">Subtotal Líquido:</span>
@@ -533,6 +556,14 @@ ${shareUrl}`
                       <p className="text-[10px] text-gray-500 leading-tight text-center flex items-center justify-center gap-1">
                         <ShieldCheck className="w-3 h-3 text-emerald-500" /> Pagamento seguro via Mercado Pago. Retire na loja com seu código.
                       </p>
+                    )}
+                    {!isEsgotado && !expiry.isExpired && (
+                      <button
+                        onClick={() => produto.id && adicionarAoCarrinho(produto.id, quantidade)}
+                        className="w-full mt-2 py-2.5 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <ShoppingBag className="w-4 h-4" /> Adicionar à sacola
+                      </button>
                     )}
                     </>
                   )

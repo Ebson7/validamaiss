@@ -8,21 +8,25 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { CookieConsent } from './components/CookieConsent';
 import { Onboarding } from './components/Onboarding';
+import { InstallPrompt } from './components/InstallPrompt';
+// Home fica eager (tela inicial / landing) para o primeiro paint ser imediato.
 import { HomeValida } from './components/screens/Home';
-import { ProdutosValida } from './components/screens/Produtos';
-import { ProdutoDetalheValida } from './components/screens/ProdutoDetalhe';
-import { LoginValida } from './components/screens/Login';
-import { CadastroValida } from './components/screens/Cadastro';
-import { MinhasReservasValida } from './components/screens/MinhasReservas';
-import { AdminDashboardValida } from './components/screens/AdminDashboard';
-import { AdminProdutosValida } from './components/screens/AdminProdutos';
-import { AdminReservasValida } from './components/screens/AdminReservas';
-import { AdminCategoriasValida } from './components/screens/AdminCategorias';
-import { CeoDashboard } from './components/screens/CeoDashboard';
-import { DadosCadastraisValida } from './components/screens/DadosCadastrais';
-import { ConviteAmigos } from './components/screens/ConviteAmigos';
-import { ClubeValida } from './components/screens/ClubeValida';
-import { AlertCircle, CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
+// Demais telas são carregadas sob demanda (code-splitting) — cada uma vira um chunk.
+const ProdutosValida = React.lazy(() => import('./components/screens/Produtos').then(m => ({ default: m.ProdutosValida })));
+const ProdutoDetalheValida = React.lazy(() => import('./components/screens/ProdutoDetalhe').then(m => ({ default: m.ProdutoDetalheValida })));
+const LoginValida = React.lazy(() => import('./components/screens/Login').then(m => ({ default: m.LoginValida })));
+const CadastroValida = React.lazy(() => import('./components/screens/Cadastro').then(m => ({ default: m.CadastroValida })));
+const MinhasReservasValida = React.lazy(() => import('./components/screens/MinhasReservas').then(m => ({ default: m.MinhasReservasValida })));
+const AdminDashboardValida = React.lazy(() => import('./components/screens/AdminDashboard').then(m => ({ default: m.AdminDashboardValida })));
+const AdminProdutosValida = React.lazy(() => import('./components/screens/AdminProdutos').then(m => ({ default: m.AdminProdutosValida })));
+const AdminReservasValida = React.lazy(() => import('./components/screens/AdminReservas').then(m => ({ default: m.AdminReservasValida })));
+const AdminCategoriasValida = React.lazy(() => import('./components/screens/AdminCategorias').then(m => ({ default: m.AdminCategoriasValida })));
+const CeoDashboard = React.lazy(() => import('./components/screens/CeoDashboard').then(m => ({ default: m.CeoDashboard })));
+const DadosCadastraisValida = React.lazy(() => import('./components/screens/DadosCadastrais').then(m => ({ default: m.DadosCadastraisValida })));
+const ConviteAmigos = React.lazy(() => import('./components/screens/ConviteAmigos').then(m => ({ default: m.ConviteAmigos })));
+const ClubeValida = React.lazy(() => import('./components/screens/ClubeValida').then(m => ({ default: m.ClubeValida })));
+const SacolaValida = React.lazy(() => import('./components/screens/Sacola').then(m => ({ default: m.SacolaValida })));
+import { CheckCircle2, ShieldAlert, Info, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 function AppContent() {
@@ -61,6 +65,8 @@ function AppContent() {
         return <ConviteAmigos />;
       case 'clube':
         return <ClubeValida />;
+      case 'sacola':
+        return <SacolaValida />;
       default:
         return <HomeValida />;
     }
@@ -142,7 +148,15 @@ function AppContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
           >
-            {renderActiveScreen()}
+            <React.Suspense
+              fallback={
+                <div className="flex items-center justify-center py-24">
+                  <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+                </div>
+              }
+            >
+              {renderActiveScreen()}
+            </React.Suspense>
           </motion.div>
         </main>
       </div>
@@ -169,6 +183,9 @@ function AppContent() {
 
       {/* Cookie consent banner */}
       <CookieConsent />
+
+      {/* Banner de instalação do app (apenas smartphones) */}
+      <InstallPrompt />
     </div>
   );
 }

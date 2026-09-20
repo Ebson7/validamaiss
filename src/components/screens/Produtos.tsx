@@ -573,7 +573,7 @@ export const ProdutosValida: React.FC = () => {
           />
         </React.Suspense>
       ) : sortedProducts.length > 0 ? (
-        <div id="products_grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div id="products_grid" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
           {sortedProducts.map((p) => (
             <ProdutoCard key={p.id} produto={p} distanceKm={distanceFor(p)} />
           ))}

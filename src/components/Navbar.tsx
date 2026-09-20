@@ -42,7 +42,8 @@ export const Navbar: React.FC = () => {
     marcarNotificacaoComoLida,
     apagarNotificacao,
     testSendNotificationPreview,
-    produtos
+    produtos,
+    carrinhoCount
   } = useApp();
 
   const [showDropdown, setShowDropdown] = useState(false);
@@ -167,6 +168,23 @@ export const Navbar: React.FC = () => {
                   }`}
                 >
                   Produtos
+                </button>
+                <button
+                  id="nav_btn_sacola"
+                  onClick={() => navigateTo('sacola')}
+                  className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    currentScreen === 'sacola'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Sacola
+                  {carrinhoCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-emerald-600 text-white text-[9px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-mono">
+                      {carrinhoCount}
+                    </span>
+                  )}
                 </button>
                 {user && (
                   <button
@@ -450,7 +468,7 @@ export const Navbar: React.FC = () => {
       {/* ── Mobile Bottom Navigation Bar ── */}
       <nav
         id="mobile_bottom_nav"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] pb-2"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
       >
         <div className="flex justify-around items-stretch px-1 pt-1">
 
@@ -479,8 +497,27 @@ export const Navbar: React.FC = () => {
                     : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
-                <ShoppingBag className="w-5 h-5" />
+                <Package className="w-5 h-5" />
                 <span className="text-[10px] font-semibold leading-none">Produtos</span>
+              </button>
+
+              {/* Sacola / carrinho multi-loja */}
+              <button
+                onClick={() => navigateTo('sacola')}
+                aria-label="Sacola"
+                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 px-1 rounded-xl transition-all ${
+                  currentScreen === 'sacola'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <ShoppingBag className="w-5 h-5" />
+                {carrinhoCount > 0 && (
+                  <span className="absolute top-0 right-1/4 bg-emerald-600 text-white text-[8px] font-black min-w-[14px] h-3.5 px-1 rounded-full flex items-center justify-center font-mono">
+                    {carrinhoCount}
+                  </span>
+                )}
+                <span className="text-[10px] font-semibold leading-none">Sacola</span>
               </button>
 
               {/* Minhas Reservas — only when logged in */}
